@@ -17,7 +17,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 
-const blobServiceClient = new BlobServiceClient(`https://${account}.blob.core.windows.net?${sas}`);
+const blobServiceClient = new BlobServiceClient(`https://daavat.blob.core.windows.net/pdfs?sp=r&st=2025-12-27T10:24:39Z&se=2025-12-27T18:39:39Z&spr=https&sv=2024-11-04&sr=c&sig=lmNTO%2FjroWjEarRhr5NKxiw4bJ481BETf%2F649XhGeb8%3D`);
 const containerClient = blobServiceClient.getContainerClient(containerName);
 
 router.post("/pdf", upload.single('image'), async (req, res) => {

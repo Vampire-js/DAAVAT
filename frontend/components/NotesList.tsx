@@ -10,7 +10,8 @@ import {
   GitGraphIcon,
   NotebookIcon,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  LogOutIcon
 } from "lucide-react";
 import { apiFetch } from "@/app/lib/api";
 import { useNote } from "@/app/contexts/NotesContext";
@@ -28,7 +29,7 @@ type Doc = {
 
 export default function NotesList() {
     const router = useRouter();
-    const {user} = useAuth();
+    const {user, logout} = useAuth();
 
 
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -230,9 +231,26 @@ export default function NotesList() {
         </div>
 
         {/* TREE */}
-        <div className="-ml-3 mt-4 w-full">
+        <div className="-ml-3 mt-4 w-full h-full">
           {renderChildren("root")}
         </div>
+
+          <div className="account-controls flex pb-5 items-center justify-between">
+        
+        <div className="flex gap-2 items-center"><div className="w-8">
+          <img className="rounded-full" src={`https://ui-avatars.com/api/?name=${user?.name}&size=256`} />
+        </div>
+        <span className="text-lg text-stone-300">{user?.name}</span>
+        </div>
+        <Button className="bg-transparent text-white rounded-full hover:bg-stone-900" onClick={() => {
+          setSelectedNoteId(null)
+          setContent("")
+          logout()
+          }}>
+          <LogOutIcon/>
+        </Button>
+
+      </div>
       </div>
     </div>
   );
