@@ -1,0 +1,38 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    node [shape=ellipse];
+    "Lee Kuan Yew" -> "Founding Prime Minister";
+    "Lee Kuan Yew" -> "Influential Statesman";
+    "Lee Kuan Yew" -> "World-Class Infrastructure";
+    "Economic Pragmatism and Meritocracy" -> "Industrialization";
+    "Economic Pragmatism and Meritocracy" -> "Foreign Investment";
+    "Economic Pragmatism and Meritocracy" -> "World-Class Infrastructure";
+    "Economic Pragmatism and Meritocracy" -> "Clean, Efficient Bureaucracy";
+    "Economic Pragmatism and Meritocracy" -> "Low Corruption";
+    "Education and Skills Development" -> "Workforce Competitiveness";
+    "Education and Skills Development" -> "Education";
+    "Education and Skills Development" -> "Bilingualism";
+    "Education and Skills Development" -> "Skills Development";
+    "Democratic Expression vs. Stability" -> "Strict Controls";
+    "Democratic Expression vs. Stability" -> "Political Opposition";
+    "Democratic Expression vs. Stability" -> "Civil Liberties";
+    "Democratic Expression vs. Stability" -> "Delivery of Stability";
+    "Democratic Expression vs. Stability" -> "Prosperity";
+    "Democratic Expression vs. Stability" -> "Social Cohesion";
+    "Democratic Expression vs. Stability" -> "Study of Effective Governance Strategies";
+    "Complex Legacy" -> "Debates Over Strict Controls vs. Liberal Policies";
+    "Complex Legacy" -> "Impact on Singapore's and Global Governance Thought Undeniably Significant";
+    "Complex Legacy" -> "Singapore's Transformation";
+    "Complex Legacy" -> "Challenges Unemployment";
+    "Complex Legacy" -> "Ethnic Tensions";
+    "Complex Legacy" -> "Lack of Natural Resources";
+    "Singapore's Transformation" -> "From Small, Resource-Poor Port";
+    "Singapore's Transformation" -> "Modern Nation";
+    "Singapore's Transformation" -> "Global Competitive Nation";
+}
+}

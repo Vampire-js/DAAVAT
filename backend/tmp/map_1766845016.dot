@@ -1,0 +1,25 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    node [shape=box];
+    "Economic Pragmatism" -> "Industrialization";
+    "Economic Pragmatism" -> "Foreign Investment";
+    "Economic Pragmatism" -> "World-Class Infrastructure";
+
+    "Meritocracy" -> "Education";
+    "Meritocracy" -> "Bilingualism";
+    "Meritocracy" -> "Skills Development";
+
+    "Clean Government" -> "Rule of Law";
+    "Clean Government" -> "Minimal Corruption";
+    "Clean Government" -> "Efficient Bureaucracy";
+
+    "Economic Pragmatism" -> "Meritocracy";
+    "Economic Pragmatism" -> "Clean Government";
+
+    "Meritocracy" -> "Clean Government";
+}

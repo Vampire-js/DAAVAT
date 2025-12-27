@@ -1,0 +1,22 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    node [shape=box];
+    "Lee Kuan Yew" -> "economic pragmatism";
+    "Lee Kuan Yew" -> "meritocracy";
+    "Lee Kuan Yew" -> "long-term planning";
+    "Industrialization" -> "Lee Kuan Yew";
+    "Foreign Investment" -> "Lee Kuan Yew";
+    "Infrastructure Development" -> "Lee Kuan Yew";
+    "Central Role in Education" -> "Lee Kuan Yew";
+    "Media Freedom Restrictions" -> "criticism";
+    "Political Opposition Control" -> "criticism";
+    "Civil Liberties Restrictions" -> "criticism";
+    "State-Building Influence" -> "global impact";
+    "Effective State Management Strategies" -> "study material";
+}
+}

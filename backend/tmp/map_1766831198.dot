@@ -1,0 +1,27 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    node [shape=ellipse];
+    "Lee Kuan Yew" -> "Founding Prime Minister";
+    "Lee Kuan Yew" -> "Industrialization";
+    "Lee Kuan Yew" -> "Merit-Based Selection Processes";
+    "Lee Kuan Yew" -> "Skills Development Programs";
+    "Lee Kuan Yew" -> "Political Stability";
+    "Economic Pragmatism and Meritocracy" -> "Industrialization";
+    "Economic Pragmatism and Meritocracy" -> "Merit-Based Selection Processes";
+    "Economic Pragmatism and Meritocracy" -> "Skills Development Programs";
+    "Economic Pragmatism and Meritocracy" -> "Political Stability";
+    "Education and Skills Development" -> "Industrialization";
+    "Education and Skills Development" -> "Merit-Based Selection Processes";
+    "Education and Skills Development" -> "Skills Development Programs";
+    "Education and Skills Development" -> "Political Stability";
+    "Political Stability and Governance Excellence" -> "Industrialization";
+    "Political Stability and Governance Excellence" -> "Merit-Based Selection Processes";
+    "Political Stability and Governance Excellence" -> "Skills Development Programs";
+    "Political Stability and Governance Excellence" -> "Political Stability";
+}
+}

@@ -1,0 +1,41 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    node [shape=ellipse];
+    "Lee Kuan Yew" -> "Leadership";
+    "Leadership" -> "Industrialization";
+    "Leadership" -> "Foreign Investments";
+    "Leadership" -> "Infrastructure Development";
+    "Leadership" -> "Education & Skills Development";
+    "Leadership" -> "Disciplined Bureaucracy";
+    "Leadership" -> "Rule of Law";
+    "Leadership" -> "Political Stability";
+    "Leadership" -> "Ethnic Tensions";
+    "Leadership" -> "Unemployment";
+    "Leadership" -> "Civil Liberties";
+    "Leadership" -> "Media Controls";
+    "Leadership" -> "Social Cohesion";
+    "Leadership" -> "Diverse Society";
+    "Leadership" -> "Criticism";
+    "Leadership" -> "Supporters";
+    "Leadership" -> "Legacy Debates";
+
+    "Industrialization" -> "Key Concepts";
+    "Foreign Investments" -> "Key Concepts";
+    "Infrastructure Development" -> "Key Concepts";
+    "Education & Skills Development" -> "Key Concepts";
+    "Disciplined Bureaucracy" -> "Key Concepts";
+    "Rule of Law" -> "Key Concepts";
+    "Political Stability" -> "Key Concepts";
+    "Ethnic Tensions" -> "Key Concepts";
+    "Unemployment" -> "Key Concepts";
+    "Civil Liberties" -> "Key Concepts";
+    "Media Controls" -> "Key Concepts";
+    "Social Cohesion" -> "Key Concepts";
+    "Diverse Society" -> "Key Concepts";
+}
+}

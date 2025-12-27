@@ -1,0 +1,16 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    "Lee Kuan Yew" -> "Key concept leader";
+    "Economic Pragmatism and Meritocracy" -> "Core aspect of Lee's governance philosophy";
+    "Industrialization and Infrastructure Development" -> "Essential elements of Lee's strategy";
+    "Clean, Efficient Administration" -> "Foundation of Singapore's success";
+    "Education and Skills Development" -> "Critical component for competitiveness";
+    "Stability and Long-Term Planning" -> "Crucial for sustainable growth";
+    "Complex Legacy Debate" -> "Criticism regarding media control and restrictions on political freedoms vs. praise for stability and";
+}
+}

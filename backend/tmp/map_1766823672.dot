@@ -1,0 +1,37 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    rankdir=LR;
+    node [shape=circle];
+    
+    // Leadership Style
+    Leadership -> Focus [label="Economic Pragmatism"];
+    Leadership -> Governance Features [label="Political Stability", style=dotted];
+    
+    // Legacy Debate
+    Legacy Debate -> Critics' View [label="Limited Democratic Expression"];
+    Legacy Debate -> Supporters' View [label="Delivered Stability", style=dotted];
+    
+    // Global Impact
+    Global Impact -> Singapore's Transformation [label="From Resource-Poor Port to Modern Nation"];
+    Global Impact -> Global Governance Thought [label="Unique Model of State-Building and Strategic Realism"];
+    
+    // Cultural Integration
+    Cultural Integration -> Bilingualism [label="Central to Educational Policy"];
+    Cultural Integration -> Skills Development [label="Emphasizes Competitiveness Internationally"];
+    
+    // Challenges Faced
+    Challenges Faced -> Unemployment [label="A Major Concern"];
+    Challenges Faced -> Ethnic Tensions [label="Addressed through Strong Administrative System"];
+    
+    // Historical Context
+    Historical Context -> Separation from Malaysia (1965) [label="Critical Turning Point"];
+    Historical Context -> Rapid Industrialization [label="Key Factor in Success"];
+    
+    // Long-Term Planning
+    Long-Term Planning -> Visionary Policies [label="Focus on Education, Infrastructure, and Skills"];
+}

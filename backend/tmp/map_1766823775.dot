@@ -1,0 +1,20 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    "Leadership and Governance" -> "Economic Pragmatism";
+    "Leadership and Governance" -> "Rule of Law and Clean Bureaucracy";
+    "Leadership and Governance" -> "Educational Focus";
+    "Economic Pragmatism" -> "Industrialization";
+    "Economic Pragmatism" -> "Foreign Investment";
+    "Economic Pragmatism" -> "World-Class Infrastructure";
+    "Rule of Law and Clean Bureaucracy" -> "Clean Administration";
+    "Rule of Law and Clean Bureaucracy" -> "Minimal Corruption";
+    "Educational Focus" -> "Skills Development";
+    "Educational Focus" -> "Bilingualism";
+    "Long-Term Planning" -> "Sustainable Development";
+    "Long-Term Planning" -> "Complex Societal Issues";
+}

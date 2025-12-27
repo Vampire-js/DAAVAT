@@ -1,0 +1,38 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    rankdir=LR;
+    node [shape=circle];
+    
+    Leadership -> EconomicPolicy;
+    Leadership -> AdministrativeSystem;
+    Leadership -> EducationSkillsDevelopment;
+    Leadership -> DemocraticEngagement;
+    Leadership -> StabilityProsperity;
+    Leadership -> ComplexLegacy;
+    Leadership -> GlobalImpact;
+    
+    EconomicPolicy -> Industrialization;
+    EconomicPolicy -> ForeignInvestment;
+    EconomicPolicy -> WorldClassInfrastructure;
+    
+    AdministrativeSystem -> CleanBureaucracy;
+    AdministrativeSystem -> LowCorruption;
+    
+    EducationSkillsDevelopment -> WorkforceCompetitiveness;
+    
+    DemocraticEngagement -> ControlOverMedia;
+    DemocraticEngagement -> PoliticalOpposition;
+    DemocraticEngagement -> CivilLiberties;
+    
+    StabilityProsperity -> EthnicTensions;
+    
+    ComplexLegacy -> BalanceBetweenAuthoritarianControlAndLiberalDemocracy;
+    
+    GlobalImpact -> StateBuilding;
+    GlobalImpact -> StrategicRealism;
+}

@@ -5,7 +5,6 @@ import { useNote } from "@/app/contexts/NotesContext";
 import { Send, Bot, User, Loader2, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { askDoubt } from "@/app/lib/api";
 
 interface Message {
@@ -91,33 +90,41 @@ export function RagDoubtSolver() {
     }
   };
 
+  // STYLE MATCH: Used exact same classes as QuizGenerator
   return (
-    <Card 
-      className={`w-full flex flex-col border border-neutral-800 shadow-2xl transition-all duration-300 bg-[#0a0a0a]/95 backdrop-blur-md ${isMinimized ? 'h-auto' : 'h-[500px]'}`}
+    <div 
+      className={`w-full flex flex-col bg-[#0a0a0a]/95 backdrop-blur-md text-white transition-all duration-300 rounded-xl border border-neutral-800 shadow-2xl ${isMinimized ? 'h-auto' : 'h-[500px]'}`}
     >
-      <CardHeader 
-        className="bg-neutral-900/80 border-b border-neutral-800 pb-3 py-3 cursor-pointer select-none flex flex-row items-center justify-between shrink-0 rounded-t-xl"
+      {/* Header - Matching QuizGenerator Style */}
+      <div 
+        className="p-3 bg-neutral-900/80 border-b border-neutral-800 cursor-pointer hover:bg-neutral-800/80 transition-colors flex items-center justify-between rounded-t-xl"
         onClick={() => setIsMinimized(!isMinimized)}
       >
-        <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
-          <Bot className="w-5 h-5 text-indigo-400" />
-          AI Doubt Solver
-          
-          {isIndexing && (
-             <span className="flex items-center gap-1 text-xs font-normal text-indigo-400 ml-3 animate-pulse">
-                <RefreshCw className="w-3 h-3 animate-spin" />
-                Reading...
-             </span>
-          )}
-        </CardTitle>
+        <div className="flex items-center gap-3">
+            {/* Icon Wrapper matching QuizGenerator */}
+            <div className="p-1.5 bg-neutral-800 text-indigo-400 rounded-lg border border-neutral-700">
+                <Bot className="w-5 h-5" />
+            </div>
+            <div>
+                <h3 className="font-bold text-white text-sm md:text-base flex items-center gap-2">
+                  AI Doubt Solver
+                  {isIndexing && (
+                    <span className="flex items-center gap-1 text-xs font-normal text-indigo-400 ml-2 animate-pulse">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        <span className="hidden sm:inline">Reading...</span>
+                    </span>
+                  )}
+                </h3>
+            </div>
+        </div>
         
-        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-neutral-400 hover:text-white hover:bg-neutral-800">
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-neutral-400 hover:text-white hover:bg-neutral-700">
             {isMinimized ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
         </Button>
-      </CardHeader>
+      </div>
       
       {!isMinimized && (
-        <CardContent className="p-4 flex-1 flex flex-col min-h-0 animate-in slide-in-from-bottom-2 duration-200">
+        <div className="p-4 flex-1 flex flex-col min-h-0 animate-in slide-in-from-bottom-2 duration-200">
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4 mb-4">
             {messages.length === 0 && (
               <div className="text-center text-sm text-neutral-500 py-10 italic flex flex-col items-center gap-2">
@@ -161,8 +168,8 @@ export function RagDoubtSolver() {
               <Send className="w-4 h-4" />
             </Button>
           </div>
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }

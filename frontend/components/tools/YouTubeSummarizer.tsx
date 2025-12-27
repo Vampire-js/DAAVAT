@@ -11,7 +11,6 @@ import {
   AlertTriangle, 
   Cookie, 
   FileText, 
-  Image as ImageIcon, 
   AlignLeft 
 } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
@@ -130,7 +129,7 @@ export default function YouTubeSummarizer() {
       </div>
 
       <p className="text-neutral-400">
-        Paste a YouTube link to get structured lecture notes, a mind map, and the transcript.
+        Paste a YouTube link to get structured lecture notes and the transcript.
       </p>
 
       {/* Model Slider */}
@@ -188,12 +187,9 @@ export default function YouTubeSummarizer() {
       {result && (
         <div className="border border-neutral-800 bg-neutral-900/50 rounded-lg p-4 animate-in fade-in slide-in-from-bottom-2">
           <Tabs defaultValue="notes" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-neutral-950 border border-neutral-800">
+            <TabsList className="grid w-full grid-cols-2 bg-neutral-950 border border-neutral-800">
               <TabsTrigger value="notes" className="data-[state=active]:bg-neutral-800 data-[state=active]:text-white">
                 <FileText className="w-4 h-4 mr-2" /> Lecture Notes
-              </TabsTrigger>
-              <TabsTrigger value="visuals" className="data-[state=active]:bg-neutral-800 data-[state=active]:text-white">
-                <ImageIcon className="w-4 h-4 mr-2" /> Mind Map
               </TabsTrigger>
               <TabsTrigger value="transcript" className="data-[state=active]:bg-neutral-800 data-[state=active]:text-white">
                 <AlignLeft className="w-4 h-4 mr-2" /> Transcript
@@ -210,32 +206,6 @@ export default function YouTubeSummarizer() {
               <div className="prose prose-invert prose-sm max-w-none bg-neutral-950/50 p-6 rounded-md border border-neutral-800">
                 <ReactMarkdown>{result.notes}</ReactMarkdown>
               </div>
-            </TabsContent>
-
-            {/* Tab 2: Visuals */}
-            <TabsContent value="visuals" className="mt-4">
-              {result.image_url ? (
-                <div className="flex flex-col items-center p-4 bg-white rounded-md border border-neutral-700">
-                  <img 
-                    src={result.image_url} 
-                    alt="Mind Map" 
-                    className="max-w-full h-auto" 
-                  />
-                  <a 
-                    href={result.image_url} 
-                    download="mindmap.png" 
-                    className="mt-4 text-blue-600 hover:underline text-xs font-medium"
-                  >
-                    Download PNG
-                  </a>
-                </div>
-              ) : (
-                <div className="text-center py-10 text-neutral-500 border border-dashed border-neutral-800 rounded-md">
-                  <AlertTriangle className="mx-auto w-8 h-8 mb-2 opacity-50"/>
-                  <p>Could not generate visual diagram.</p>
-                  <p className="text-xs opacity-70 mt-1">Ensure Graphviz is installed on the backend.</p>
-                </div>
-              )}
             </TabsContent>
 
             {/* Tab 3: Transcript */}

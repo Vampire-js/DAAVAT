@@ -1,0 +1,11 @@
+digraph G {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor="#f8f9fa"];
+  
+  "World War I Ends" -> "Post-War Economic Prosperity" [label="set the stage"];
+  "Post-War Economic Prosperity" -> "Increased Investment" [label="leads to"];
+  "Increased Investment" -> "Market Crashes" [label="creates conditions"];
+  "Market Crashes" -> "Stock Market Collapse" [label="triggered by"];
+  "Stock Market Collapse" -> "Onset of the Great Depression" [label="characterized by"];
+  "Government Intervention" -> "Laws Introduction" [label="after the crash"];
+}

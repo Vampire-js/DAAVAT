@@ -1,0 +1,30 @@
+digraph G {
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=1.0;
+    splines=true;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#f8f9fa"];
+
+    node [shape=ellipse];
+    "Lee Kuan Yew" -> "Founding Prime Minister";
+    "Economic Pragmatism and Meritocracy" -> "Industrialization";
+    "Economic Pragmatism and Meritocracy" -> "Foreign Investment";
+    "Economic Pragmatism and Meritocracy" -> "World-Class Infrastructure";
+    "Economic Pragmatism and Meritocracy" -> "Clean Bureaucracy";
+    "Economic Pragmatism and Meritocracy" -> "Low Corruption";
+    "Economic Pragmatism and Meritocracy" -> "Education";
+    "Economic Pragmatism and Meritocracy" -> "Bilingualism";
+    "Economic Pragmatism and Meritocracy" -> "Skills Development";
+    "Economic Pragmatism and Meritocracy" -> "Media Controls";
+    "Economic Pragmatism and Meritocracy" -> "Political Opposition";
+    "Economic Pragmatism and Meritocracy" -> "Civil Liberties";
+    "Economic Pragmatism and Meritocracy" -> "Stability";
+    "Economic Pragmatism and Meritocracy" -> "Prosperity";
+    "Economic Pragmatism and Meritocracy" -> "Social Cohesion";
+    "Economic Pragmatism and Meritocracy" -> "Unique Model";
+    "Economic Pragmatism and Meritocracy" -> "Strategic Realism";
+
+    "Economic Pragmatism and Meritocracy" -> "Lee Kuan Yew";
+    "Economic Pragmatism and Meritocracy" -> "Economic Pragmatism and Meritocracy";
+}
+}

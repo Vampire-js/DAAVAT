@@ -1,0 +1,19 @@
+digraph G {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor="#f8f9fa"];
+  
+  "Leadership Style" -> "Meritocracy" [label="Guides"];
+  "Leadership Style" -> "Economic Pragmatism" [label="Guides"];
+  
+  "Economic Policies" -> "Industrialization" [label="Supports"];
+  "Economic Policies" -> "Infrastructure Development" [label="Supports"];
+  
+  "Governance Structure" -> "Rule of Law" [label="Supports"];
+  "Governance Structure" -> "Efficiency" [label="Supports"];
+  
+  "Education and Skills Development" -> "Stable Government" [label="Supports"];
+  "Education and Skills Development" -> "Efficient Administration" [label="Supports"];
+  
+  "Legacy Debate" -> "Successful State-Building Model" [label="Some See"];
+  "Legacy Debate" -> "Restrictions on Freedom" [label="Others Criticize"];
+}

@@ -71,10 +71,13 @@ def get_whisper_model(size="medium"):
 # Pre-load Medium (Default)
 get_whisper_model("medium")
 
-# B. LLM for Notes & RAG (Qwen 1.5B)
+# --------------------
+# B. LLM for Notes & RAG (1.5B Model - Fast & Light)
+# --------------------
 LLM_ID = "Qwen/Qwen2.5-1.5B-Instruct"
-tokenizer = AutoTokenizer.from_pretrained(LLM_ID)
+print(f"🚀 Loading Fast Model: {LLM_ID}...")
 
+tokenizer = AutoTokenizer.from_pretrained(LLM_ID)
 llm_model = AutoModelForCausalLM.from_pretrained(
     LLM_ID,
     dtype=torch.float32, 
@@ -167,6 +170,88 @@ DOT_HEADER = """digraph G {
 """
 
 # --------------------
+# Helper: Diagram Generation Logic (Graphviz)
+# --------------------
+def generate_diagram(text_content, file_id):
+    print("🎨 Generating Diagram...")
+    concepts = generate_llm([
+        {"role": "system", "content": "Extract 8 key concepts and their relationships from these notes."},
+        {"role": "user", "content": text_content[:4000]}
+    ], max_new_tokens=256)
+
+    system_prompt = """
+    You are a Graphviz expert. Output ONLY the raw DOT code.
+    Rules:
+    1. Start with 'digraph G {'
+    2. End with '}'
+    3. Edges must use '->'
+    4. Labels must be double-quoted (e.g. label="text").
+    5. NO Markdown, NO triple quotes, NO comments.
+    """
+    
+    dot_code = None
+    for attempt in range(3):
+        try:
+            raw = generate_llm([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Create a simple diagram for: {concepts}"}
+            ], temperature=0.2)
+            
+            # --- Aggressive Cleanup ---
+            raw_clean = re.sub(r"'{3,}", "", raw)
+            raw_clean = re.sub(r'"{3,}', "", raw_clean)
+            raw_clean = raw_clean.replace("```dot", "").replace("```", "")
+            
+            lines = raw_clean.splitlines()
+            valid_lines = []
+            for line in lines:
+                s = line.strip()
+                if s.startswith("dot_code") or s.startswith("print("): continue
+                valid_lines.append(line)
+            raw_clean = "\n".join(valid_lines)
+
+            start = raw_clean.find("digraph")
+            end = raw_clean.rfind("}")
+            
+            if start != -1 and end != -1 and end > start:
+                candidate = raw_clean[start:end+1]
+                if "{" not in candidate: candidate = candidate.replace("digraph G", "digraph G {")
+                
+                # --- APPLY DOT_HEADER HERE ---
+                if "nodesep" not in candidate and "{" in candidate:
+                    parts = candidate.split("{", 1)
+                    if len(parts) == 2: candidate = DOT_HEADER + parts[1]
+                
+                if "->" not in candidate and "--" in candidate:
+                     candidate = candidate.replace("--", "->")
+
+                dot_code = candidate
+                break
+            else:
+                print(f"   ⚠️ Attempt {attempt+1}: Invalid DOT syntax.")
+        except Exception as e:
+            print(f"   ⚠️ Retry {attempt+1}: {e}")
+
+    # Render Image
+    image_url = None
+    if dot_code:
+        os.makedirs("tmp", exist_ok=True)
+        dot_path = f"tmp/{file_id}.dot"
+        png_path = f"tmp/{file_id}.png"
+        with open(dot_path, "w") as f:
+            f.write(dot_code)
+        
+        try:
+            subprocess.run(["dot", "-Tpng", dot_path, "-o", png_path], check=True, stderr=subprocess.PIPE)
+            image_url = f"http://127.0.0.1:8000/{png_path}"
+        except subprocess.CalledProcessError as e:
+            print(f"   ❌ Graphviz Syntax Error: {e.stderr.decode()}")
+        except Exception as e:
+            print(f"   ❌ Graphviz failed: {e}")
+            
+    return image_url
+
+# --------------------
 # Helper: Processing Pipeline
 # --------------------
 def process_full_pipeline(audio_path, file_id, model_size="medium"):
@@ -209,85 +294,71 @@ def process_full_pipeline(audio_path, file_id, model_size="medium"):
         {"role": "system", "content": "Merge these summaries into one clean, structured set of Lecture Notes (Markdown). Use Headers, Bullet points, and Bold text."},
         {"role": "user", "content": merged_notes[:10000]} 
     ], max_new_tokens=1024)
-
-    # 3. Generate Visual Diagram
-    print("🎨 Stage 3: Visualizing...")
-    concepts = generate_llm([
-        {"role": "system", "content": "Extract 8 key concepts and their relationships from these notes."},
-        {"role": "user", "content": final_notes[:4000]}
-    ], max_new_tokens=256)
-
-    system_prompt = """
-    You are a Graphviz expert. Output ONLY the raw DOT code.
-    Rules:
-    1. Start with 'digraph G {'
-    2. End with '}'
-    3. Edges must use '->'
-    4. Labels must be double-quoted (e.g. label="text").
-    5. NO Markdown, NO triple quotes, NO comments.
-    """
     
-    dot_code = None
-    for attempt in range(3):
-        try:
-            raw = generate_llm([
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Create a simple diagram for: {concepts}"}
-            ], temperature=0.2)
-            
-            # --- Aggressive Cleanup ---
-            raw_clean = re.sub(r"'{3,}", "", raw)
-            raw_clean = re.sub(r'"{3,}', "", raw_clean)
-            raw_clean = raw_clean.replace("```dot", "").replace("```", "")
-            
-            lines = raw_clean.splitlines()
-            valid_lines = []
-            for line in lines:
-                s = line.strip()
-                if s.startswith("dot_code") or s.startswith("print("): continue
-                valid_lines.append(line)
-            raw_clean = "\n".join(valid_lines)
-
-            start = raw_clean.find("digraph")
-            end = raw_clean.rfind("}")
-            
-            if start != -1 and end != -1 and end > start:
-                candidate = raw_clean[start:end+1]
-                if "{" not in candidate: candidate = candidate.replace("digraph G", "digraph G {")
-                if "nodesep" not in candidate and "{" in candidate:
-                    parts = candidate.split("{", 1)
-                    if len(parts) == 2: candidate = DOT_HEADER + parts[1]
-                if "->" not in candidate and "--" in candidate:
-                     candidate = candidate.replace("--", "->")
-
-                dot_code = candidate
-                break
-            else:
-                print(f"   ⚠️ Attempt {attempt+1}: Invalid DOT syntax.")
-        except Exception as e:
-            print(f"   ⚠️ Retry {attempt+1}: {e}")
-
-    # 4. Render Image
-    image_url = None
-    if dot_code:
-        dot_path = f"tmp/{file_id}.dot"
-        png_path = f"tmp/{file_id}.png"
-        with open(dot_path, "w") as f:
-            f.write(dot_code)
-        
-        try:
-            subprocess.run(["dot", "-Tpng", dot_path, "-o", png_path], check=True, stderr=subprocess.PIPE)
-            image_url = f"http://127.0.0.1:8000/{png_path}"
-        except subprocess.CalledProcessError as e:
-            print(f"   ❌ Graphviz Syntax Error: {e.stderr.decode()}")
-        except Exception as e:
-            print(f"   ❌ Graphviz failed: {e}")
-
     return {
         "transcript": transcript,
         "notes": final_notes,
-        "image_url": image_url
+        "image_url": None 
     }
+
+# --------------------
+# Helper: Accurate 35% Summarizer Logic
+# --------------------
+def accurate_35_summarize(text, target_ratio=0.35):
+    """TRUE 35% word coverage extractive summarization"""
+
+    # 1. CLEAN TEXT
+    text = re.sub(r'\s+', ' ', text)
+    sentences = re.split(r'(?<=[\.!?])\s+', text)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
+
+    # 2. DEDUPLICATE
+    unique_sentences = []
+    seen = set()
+    for sent in sentences:
+        h = hash(sent.lower())
+        if h not in seen:
+            unique_sentences.append(sent)
+            seen.add(h)
+    sentences = unique_sentences
+
+    # 3. CALCULATE TARGET WORD COUNT (35% of ORIGINAL)
+    orig_words = len(re.findall(r'\b\w+\b', text))
+    target_words = max(500, int(orig_words * target_ratio))  # 35% words, min 500
+
+    print(f"{len(sentences)} unique sentences")
+    print(f" Target: {target_words:,}/{orig_words:,} words (35%)")
+
+    # 4. SCORE ALL SENTENCES
+    all_words = re.findall(r'\b\w+\b', text.lower())
+    word_freq = Counter(all_words)
+
+    scored_sentences = []
+    for sent in sentences:
+        sent_words = re.findall(r'\b\w+\b', sent.lower())
+        score = sum(word_freq[w] * np.log(len(all_words) / word_freq[w])
+                   for w in sent_words if word_freq[w] > 1)
+        word_count = len(sent_words)
+        scored_sentences.append((score, word_count, sent))
+
+    # 5. GREEDY SELECTION - highest score until target words reached
+    scored_sentences.sort(key=lambda x: x[0], reverse=True)
+    selected_sentences = []
+    current_word_count = 0
+
+    for score, word_count, sent in scored_sentences:
+        if current_word_count + word_count <= target_words:
+            selected_sentences.append(sent)
+            current_word_count += word_count
+        if current_word_count >= target_words * 0.9:  # 90% of target
+            break
+
+    # 6. PRESERVE ORDER
+    order_map = {sent: i for i, sent in enumerate(sentences)}
+    selected_sentences.sort(key=lambda x: order_map[x])
+    summary_text = "\n\n".join(selected_sentences)
+
+    return summary_text, orig_words, current_word_count
 
 # --------------------
 # Routes
@@ -302,6 +373,9 @@ class RagIngest(BaseModel):
 class QuizRequest(BaseModel):
     note_content: str
     num_questions: int = 3
+    
+class MindMapRequest(BaseModel):
+    note_content: str
 
 @app.post("/rag/ingest")
 async def rag_ingest(item: RagIngest):
@@ -322,6 +396,9 @@ async def generate_quiz(item: QuizRequest):
         raise HTTPException(status_code=400, detail="Note content is empty.")
 
     context_chunk = item.note_content[:5000]
+
+    # --- REVERTED TO 1.5B LOGIC (Separated Answers & Distractors) ---
+    print(f"🧠 Generating {item.num_questions} questions using 1.5B model logic...")
 
     system_prompt = """You are an expert academic evaluator. Create high-quality, challenging multiple-choice questions based ONLY on the provided text.
     Rules:
@@ -386,6 +463,19 @@ async def generate_quiz(item: QuizRequest):
         print(f"❌ Quiz Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate quiz.")
 
+@app.post("/generate_mindmap")
+async def generate_mindmap(item: MindMapRequest):
+    if not item.note_content.strip():
+         raise HTTPException(status_code=400, detail="Note content is empty.")
+    
+    file_id = f"map_{int(time.time())}"
+    image_url = generate_diagram(item.note_content, file_id)
+    
+    if not image_url:
+        raise HTTPException(status_code=500, detail="Failed to generate mind map.")
+        
+    return {"image_url": image_url}
+
 @app.post("/upload_cookies")
 async def upload_cookies(file: UploadFile):
     try:
@@ -440,28 +530,40 @@ async def pdf_summarize(file: UploadFile):
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     try:
+        print(f"🔍 EXTRACTING PDF: {file.filename}")
         doc = fitz.open(file_path)
-        text = ""
-        for page in doc: text += page.get_text() + "\n"
+        all_text = ""
         
-        rag_solver.process_lecture_data(text)
-        
-        chunks = [text[i:i+3000] for i in range(0, len(text), 3000)]
-        summary_text = []
-        for ch in chunks:
-             if len(ch.split()) > 50:
-                s = summarizer(ch, max_length=150, min_length=30, do_sample=False)
-                summary_text.append(s[0]['summary_text'])
-        
-        final_summary = "\n".join(summary_text)
+        # Triple extraction for max accuracy
+        for page in doc:
+            text1 = page.get_text()
+            text2 = page.get_text("blocks")
+            text3 = " ".join([block[4] for block in text2 if isinstance(block[4], str)])
+            
+            combined = f"{text1}\n\n{text3}"
+            all_text += combined + "\n\n"
 
-        original_word_count = len(text.split())
-        summary_word_count = len(final_summary.split())
+        # Index for RAG
+        rag_solver.process_lecture_data(all_text)
         
+        # USE THE CUSTOM 35% SUMMARIZER
+        summary_text, orig_count, summary_count = accurate_35_summarize(all_text)
+        
+        # Add Header Metadata
+        final_summary = f"""# PDF Summary Report
+        
+**Original Words**: {orig_count:,}
+**Summary Words**: {summary_count:,}
+**Coverage**: ~35% (TextRank Algorithm)
+
+## Key Concepts
+
+{summary_text}
+"""
         return {
             "summary_markdown": final_summary,
-            "original_word_count": original_word_count,
-            "summary_word_count": summary_word_count
+            "original_word_count": orig_count,
+            "summary_word_count": summary_count
         } 
     finally:
         if os.path.exists(file_path): os.remove(file_path)
