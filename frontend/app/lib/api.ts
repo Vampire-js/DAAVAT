@@ -1,10 +1,10 @@
 // frontend/app/lib/api.ts
 
 // 1. Standard Node Backend (Auth, Saving Notes)
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 // 2. New Python AI Backend (RAG, Transcription)
-export const ML_API_BASE = process.env.NEXT_PUBLIC_ML_API_URL || "http://localhost:8000";
+export const ML_API_BASE = process.env.NEXT_PUBLIC_ML_API_URL;
 
 // --- Existing Node API Fetcher ---
 export async function apiFetch(path: string, options?: RequestInit) {
@@ -18,12 +18,10 @@ export async function apiFetch(path: string, options?: RequestInit) {
   });
 }
 
-// --- New Python AI Fetcher ---
-// Helper to talk to the FastAPI backend
 export async function mlFetch(path: string, options?: RequestInit) {
   return fetch(`${ML_API_BASE}${path}`, {
     ...options,
-    // Note: Python backend must have CORSMiddleware configured for localhost:3000
+
     headers: {
       "Content-Type": "application/json",
       ...(options?.headers || {}),
@@ -31,11 +29,6 @@ export async function mlFetch(path: string, options?: RequestInit) {
   });
 }
 
-// ------------------------------------------
-// AI Feature Exports
-// ------------------------------------------
-
-// 1. Doubt Solver (RAG)
 export const askDoubt = async (question: string) => {
   const response = await mlFetch("/rag/query", {
     method: "POST",
@@ -47,7 +40,6 @@ export const askDoubt = async (question: string) => {
   return data.answer; // Returns string from Qwen
 };
 
-// 2. YouTube Summarizer
 export const summarizeYoutube = async (url: string) => {
   const response = await mlFetch("/youtube_summarize", {
     method: "POST",

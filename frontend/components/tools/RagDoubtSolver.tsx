@@ -48,7 +48,7 @@ export function RagDoubtSolver() {
 
       setIsIndexing(true);
       try {
-        await fetch("http://localhost:8000/rag/ingest", {
+        await fetch(`${process.env.NEXT_PUBLIC_ML_API_URL}rag/ingest`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: plainText }),

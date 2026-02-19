@@ -31,8 +31,11 @@ export default function LiveTranscriber() {
   const fullAudioChunksRef = useRef<Blob[]>([]); // Store full audio here
 
   useEffect(() => {
-    return () => stopLiveCapture();
-  }, []);
+  return () => {
+    stopLiveCapture().catch(console.error);
+  };
+}, []);
+
 
   const copyToClipboard = async (text: string) => {
     try {

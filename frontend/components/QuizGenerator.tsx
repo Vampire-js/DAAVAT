@@ -52,7 +52,7 @@ export default function QuizGenerator() {
     }
 
     try {
-      const res = await fetch("http://localhost:8000/generate_quiz", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_ML_API_URL}/generate_quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note_content: plainText, num_questions: 3 }),
