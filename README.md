@@ -21,51 +21,77 @@ The system treats a lecture as a **single source of truth** and generates multip
 This enables faster revision, better understanding, and improved knowledge retention — all within one integrated platform.
 
 ---
+## 🚀 Features
 
-##  Target Audience
+### 🎙 Audio & Video Input
+- Upload MP3, WAV, MP4 lecture files  
+- Supports long recordings  
+- Automatic audio cleaning  
 
-- Students  
-- Competitive exam aspirants  
-- Self-learners  
-- Educators  
-- Professionals upskilling  
+### ⚡ Fast Transcription
+- Near real-time speech-to-text  
+- Lightweight distilled Transformer models  
+- Efficient memory management  
 
----
+### 🌍 Multi-Language Ready
+- English support (Phase 1)  
+- Expandable to multilingual & Indic languages  
 
-##  Technical Approach
+### 📄 Export Options
+- TXT  
+- PDF  
+- Markdown (Obsidian-compatible)
 
-The system leverages modern AI and NLP technologies:
+### 🧠 AI-Powered Intelligence
+- Transformer-based architecture  
+- Extractive + Abstractive summarization  
+- Semantic embedding search  
+- Context-aware doubt solving  
 
--  Speech-to-Text (STT) for lecture transcription  
--  NLP-based extractive and abstractive summarization  
--  Semantic search using sentence embeddings  
--  Large Language Models (LLMs) for intelligent doubt resolution  
--  Modular, plugin-based backend architecture  
--  Scalable and extensible pipeline design  
+### 📝 Quiz & Revision Generator
+- MCQs  
+- Short-answer questions  
+- Key concept extraction  
 
-The architecture is designed to support live and recorded lectures, future multilingual expansion, and institutional-level deployment.
-
----
-
-##  Key Differentiators
-
--  Plugin-based extensibility  
--  Modular and reusable outputs  
--  Offline-friendly design  
--  No vendor lock-in  
--  Lecture-to-knowledge transformation pipeline  
-
----
-
-##  Impact
-
--  Improves learning efficiency and retention  
--  Reduces dependency on paid note-taking platforms  
--  Encourages paperless digital learning  
--  Promotes accessible and inclusive education  
+### 🧩 Modular Architecture
+- Plug-and-play model replacement  
+- Institution-ready scalability
 
 ---
 
-##  Overall Vision
+# 🛠 Tech Stack
+
+## Backend
+- Python  
+- FastAPI  
+
+## Machine Learning
+- PyTorch / TensorFlow  
+- Scikit-learn  
+- Transformer-based models  
+- Sentence Transformers (MiniLM embeddings)  
+
+## Deployment
+- Docker  
+- AWS / GCP (Cloud-ready)  
+
+---
+# 🤖 Machine Learning Details
+
+## Models Used
+- Speech-to-Text: Distilled Transformer ASR  
+- Summarization: BERT / TextRank / LLM-based  
+- Embeddings: sentence-transformers/all-MiniLM-L6-v2  
+- Q&A Model: Instruction-tuned LLM (e.g., Qwen)
+  
+
+## Evaluation Metrics
+- WER (Word Error Rate) – Transcription  
+- ROUGE Score – Summarization  
+- BLEU Score – Text generation  
+- Accuracy / F1 Score – Quiz performance  
+- Inference Latency – System performance  
+
+---
 
 To build a smart, scalable, and accessible AI learning ecosystem that transforms lectures into structured knowledge — instantly and intelligently.
