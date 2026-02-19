@@ -3,7 +3,7 @@
 
 ---
 
-## 📖 Project Description
+##  Project Description
 
 Students and self-learners often struggle with slow manual note-taking, passive learning from lengthy lectures, and fragmented tools for revision, quizzes, and doubt-solving. Transforming long lecture videos into structured notes requires repeated effort and reduces engagement, retention, and efficiency.
 
@@ -21,71 +21,71 @@ The system treats a lecture as a **single source of truth** and generates multip
 This enables faster revision, better understanding, and improved knowledge retention — all within one integrated platform.
 
 ---
-## 🚀 Features
+##  Features
 
-### 🎙 Audio & Video Input
+###  <u>Audio & Video Input</u>
 - Upload MP3, WAV, MP4 lecture files  
 - Supports long recordings  
 - Automatic audio cleaning  
 
-### ⚡ Fast Transcription
+###  <u>Fast Transcription</u>
 - Near real-time speech-to-text  
 - Lightweight distilled Transformer models  
 - Efficient memory management  
 
-### 🌍 Multi-Language Ready
+###  <u>Multi-Language Ready</u>
 - English support (Phase 1)  
 - Expandable to multilingual & Indic languages  
 
-### 📄 Export Options
+###  <u>Export Options</u>
 - TXT  
 - PDF  
 - Markdown (Obsidian-compatible)
 
-### 🧠 AI-Powered Intelligence
+###  <u>AI-Powered Intelligence</u>
 - Transformer-based architecture  
 - Extractive + Abstractive summarization  
 - Semantic embedding search  
 - Context-aware doubt solving  
 
-### 📝 Quiz & Revision Generator
+###  <u>Quiz & Revision Generator</u>
 - MCQs  
 - Short-answer questions  
 - Key concept extraction  
 
-### 🧩 Modular Architecture
+###  <u>Modular Architecture</u>
 - Plug-and-play model replacement  
 - Institution-ready scalability
 
 ---
 
-# 🛠 Tech Stack
+##  Tech Stack
 
-## Backend
+### <u>Backend</u>
 - Python  
 - FastAPI  
 
-## Machine Learning
+### <u>Machine Learning</u>
 - PyTorch / TensorFlow  
 - Scikit-learn  
 - Transformer-based models  
 - Sentence Transformers (MiniLM embeddings)  
 
-## Deployment
+### <u>Deployment</u>
 - Docker  
 - AWS / GCP (Cloud-ready)  
 
 ---
-# 🤖 Machine Learning Details
+##  Machine Learning Details
 
-## Models Used
+### <u>Models Used</u>
 - Speech-to-Text: Distilled Transformer ASR  
 - Summarization: BERT / TextRank / LLM-based  
 - Embeddings: sentence-transformers/all-MiniLM-L6-v2  
 - Q&A Model: Instruction-tuned LLM (e.g., Qwen)
   
 
-## Evaluation Metrics
+### <u>Evaluation Metrics</u>
 - WER (Word Error Rate) – Transcription  
 - ROUGE Score – Summarization  
 - BLEU Score – Text generation  
