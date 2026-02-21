@@ -6,6 +6,10 @@ import NotesList from "./NotesList";
 import NotesRenderer from "./NotesRenderer";
 import Tools from "./Tools";
 import { RagDoubtSolver } from "@/components/tools/RagDoubtSolver"; 
+import { Button } from "./ui/button";
+import { GitGraphIcon, NotebookIcon } from "lucide-react";
+import SideBar from "./SideBar";
+
 
 export default function NotesLayout() {
   const toolsPanelRef = useRef<any>(null);
@@ -23,6 +27,8 @@ export default function NotesLayout() {
     }
   };
 
+    const [selected, setSelected] = useState<"notes" | "graph">("notes");
+
   return (
     <div className="relative h-screen bg-background overflow-hidden text-foreground">
       <PanelGroup direction="horizontal" className="h-full">
@@ -32,9 +38,10 @@ export default function NotesLayout() {
           defaultSize={20} 
           minSize={20} 
           maxSize={30} 
-          className="border-r border-border bg-card"
+          className="border-r border-border bg-card flex"
         >
-          <NotesList />
+<SideBar selected={selected} setSelected={setSelected}/>
+          <NotesList/>
         </Panel>
 
         {/* Minimalist Resize Handle: Razor-thin line */}
@@ -45,16 +52,18 @@ export default function NotesLayout() {
           <div className="h-full w-full flex flex-col relative bg-background">
             
             {/* The Note Editor/Renderer */}
-            <div className="flex-1 overflow-y-auto min-h-0 pb-32 scroll-smooth custom-scrollbar">
-               <NotesRenderer />
+            <div className="flex-1 overflow-y-auto min-h-0 scroll-smooth custom-scrollbar">
+               <NotesRenderer selected={selected} setSelected={setSelected}/>
             </div>
 
             {/* AI Input Overlay - Maintained floating logic */}
+            { selected == "notes" ? 
             <div className="absolute bottom-8 left-0 right-0 z-50 flex justify-center pointer-events-none">
                 <div className="pointer-events-auto w-full max-w-2xl px-6">
                     <RagDoubtSolver />
                 </div>
-            </div>
+            </div> : <div></div>
+}
           </div>
         </Panel>
 
