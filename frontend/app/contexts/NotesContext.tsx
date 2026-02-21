@@ -29,7 +29,6 @@ type NoteContextType = {
   setContent: (text: string | undefined) => void;
   name: string | null;
   setName: (text: string | null) => void;
-  // 🔥 Updated signature to accept references and return the created Doc
   addNote: (note: { 
     title: string; 
     content: string; 
@@ -37,10 +36,13 @@ type NoteContextType = {
     tags?: string[]; 
     references?: Omit<Reference, 'id'>[] 
   }) => Promise<Doc>; 
-  updateNote: (noteID: string, updates: Partial<Doc>) => Promise<void>; // 🔥 Add this
+  updateNote: (noteID: string, updates: Partial<Doc>) => Promise<void>;
   references: Reference[];
   setReferences: (refs: Reference[]) => void;
   addReference: (ref: Omit<Reference, 'id'>) => Promise<void>;
+  // 🔥 Global Progress State
+  globalProgress: number | null;
+  setGlobalProgress: (val: number | null) => void;
 };
 
 const NoteContext = createContext<NoteContextType | null>(null);
@@ -51,6 +53,9 @@ export function NoteProvider({ children }: { children: ReactNode }) {
   const [content, setContent] = useState<string | undefined>(undefined);
   const [name, setName] = useState<string | null>(null);
   const [references, setReferences] = useState<Reference[]>([]);
+  
+  // 🔥 New state for tracking background task progress
+  const [globalProgress, setGlobalProgress] = useState<number | null>(null);
 
   // 1. Sync State with Docs Array
   useEffect(() => {
@@ -84,25 +89,23 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     refreshDocs();
   }, [refreshDocs]);
 
-  // 🔥 Add the updateNote function logic
   const updateNote = useCallback(async (noteID: string, updates: Partial<Doc>) => {
     try {
       const response = await apiFetch("/fileTree/updateNote", {
         method: "POST",
         body: JSON.stringify({
           noteID,
-          ...updates // Sends content, references, etc.
+          ...updates
         }),
       });
 
       if (!response.ok) throw new Error("Failed to update note");
 
-      // Update local state immediately so the editor reflects changes
       setDocs((prev) =>
         prev.map((doc) => (doc._id === noteID ? { ...doc, ...updates } : doc))
       );
       
-      await refreshDocs(); // Sync with server
+      await refreshDocs();
     } catch (err) {
       console.error("Error updating note:", err);
       throw err;
@@ -179,7 +182,9 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     <NoteContext.Provider value={{ 
       docs, folders, refreshDocs, selectedNoteId, setSelectedNoteId, 
       content, setContent, name, setName, addNote, updateNote,
-      references, setReferences, addReference
+      references, setReferences, addReference,
+      // 🔥 Progress values exported for app-wide use
+      globalProgress, setGlobalProgress 
     }}>
       {children}
     </NoteContext.Provider>

@@ -87,7 +87,8 @@ export default function NotesRenderer() {
     setContent,
     name,
     references,
-    setReferences
+    setReferences,
+    globalProgress // 🔥 Added from context
   } = useNote();
   const [tabs, setTabs] = useState<Tab[]>([]);
   const { showDialog } = useUI();
@@ -330,6 +331,31 @@ export default function NotesRenderer() {
             </Button>
           )}
         </div>
+
+        {/* --- RECTANGULAR THEMED PROGRESS BAR (IN-LINE BELOW BUTTONS) --- */}
+        {globalProgress !== null && (
+          <div className="w-full px-4 py-2 border-t border-border bg-neutral-50 dark:bg-neutral-900/20 animate-in fade-in slide-in-from-top-1 duration-300">
+            <div className="flex items-center gap-4 max-w-5xl mx-auto">
+              {/* Progress Container */}
+              <div className="flex-1 bg-neutral-200 dark:bg-neutral-800 rounded-sm h-1.5 overflow-hidden relative">
+                {/* The Fill - Neutral Grey Theme */}
+                <div 
+                  className="h-full bg-neutral-400 dark:bg-neutral-500 transition-all duration-500 ease-out"
+                  style={{ width: `${globalProgress}%` }}
+                />
+              </div>
+              {/* Status Label */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
+                  Synthesizing
+                </span>
+                <span className="text-[10px] font-mono font-bold text-neutral-600 dark:text-neutral-400 w-10">
+                  {globalProgress}%
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {mindMapUrl && (
           <div className="w-full bg-card/50 border-b border-border p-4 relative animate-in slide-in-from-top-2">
