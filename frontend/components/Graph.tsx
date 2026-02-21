@@ -10,7 +10,7 @@ interface GraphProps {
 }
 
 export function Graph({ setSelected }: GraphProps) {
-    const { setSelectedDocId } = useNote();   // ✅ updated
+    const { setSelectedDocId } = useNote();
     const containerRef = useRef<HTMLDivElement>(null);
     const [notes, setNotes] = useState<any[]>([]);
 
@@ -38,30 +38,28 @@ export function Graph({ setSelected }: GraphProps) {
         const cy = cytoscape({
             container: containerRef.current,
             elements,
-            zoom: 0.1,
-            minZoom: 0.1,
-            maxZoom: 3,
-
             style: [
                 {
                     selector: "node",
                     style: {
                         "background-color": "#7c3aed",
-                        "width": 14,
-                        "height": 14,
+                        "width": 12,
+                        "height": 12,
                         "label": "data(label)",
-                        "color": "#e5e5e5",
-                        "font-size": 10,
+                        "color": "#a3a3a3",
+                        "font-size": 8,
                         "text-valign": "bottom",
                         "text-halign": "center",
                         "text-margin-y": 6,
+                        "font-family": "Inter, sans-serif",
                     },
                 },
                 {
                     selector: "edge",
                     style: {
                         "width": 1,
-                        "line-color": "#555",
+                        "line-color": "#333",
+                        "curve-style": "bezier",
                     },
                 },
             ],
@@ -70,15 +68,24 @@ export function Graph({ setSelected }: GraphProps) {
                 name: "cose",
                 animate: true,
                 fit: true,
-                padding: 100,
-            },
+                padding: 150, // Increased padding
+                nodeOverlap: 20,
+                // Sparse settings:
+                idealEdgeLength: (edge: any) => 100, // Increase edge length for more space
+                nodeRepulsion: (node: any) => 1000000, // Stronger repulsion to push nodes apart
+                edgeElasticity: (edge: any) => 100,
+                nestingFactor: 5,
+                gravity: 0.25, // Lower gravity to prevent clumping
+                numIter: 1000,
+                initialTemp: 200,
+                coolingFactor: 0.95,
+                minTemp: 1.0,
+            } as any,
         });
 
-        // 🔥 Node click → switch to notes view
         cy.on("tap", "node", (event) => {
             const nodeId = event.target.id();
-
-            setSelectedDocId(nodeId);  // ✅ correct
+            setSelectedDocId(nodeId);
             setSelected("notes");
         });
 
@@ -88,7 +95,7 @@ export function Graph({ setSelected }: GraphProps) {
     }, [notes, setSelectedDocId, setSelected]);
 
     return (
-        <div className="w-full h-full bg-[#0f0f0f]">
+        <div className="w-full h-full bg-[#0a0a0a]">
             <div ref={containerRef} className="w-full h-full" />
         </div>
     );

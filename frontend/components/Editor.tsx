@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useNote } from "@/app/contexts/NotesContext";
 import "@blocknote/core/fonts/inter.css";
 import { useCreateBlockNote } from "@blocknote/react";
@@ -12,106 +12,108 @@ type EditorProps = {
   setChanged: (v: boolean) => void;
 };
 
-export default function Editor({ setChanged }: EditorProps) {
-  const {
-    docs,
-    content,
-    setContent,
-    selectedDocId,
-  } = useNote();
-
-  const editor = useCreateBlockNote();
+/**
+ * INTERNAL COMPONENT: Owns the 'useCreateBlockNote' instance.
+ * Remounting this component via a 'key' prop is the ONLY way to truly
+ * destroy the previous editor's internal state and prevent "bleeding".
+ */
+function BlockNoteInternal({ 
+  docId, 
+  initialContent, 
+  onSave 
+}: { 
+  docId: string; 
+  initialContent: string; 
+  onSave: (val: string) => void 
+}) {
   const { theme } = useTheme();
+  const editor = useCreateBlockNote();
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Track current ID in a ref to block async saves to the wrong document
+  const idRef = useRef(docId);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const init = async () => {
+      setIsMounted(false);
+      try {
+        // 1. Force clear the internal document to prevent flickering
+        editor.replaceBlocks(editor.document, [{ type: "paragraph", content: [] }]);
+
+        // 2. Load and stylize the new content
+        if (initialContent && initialContent !== "undefined" && initialContent !== "") {
+          try {
+            // Try BlockNote JSON format
+            const parsed = JSON.parse(initialContent);
+            editor.replaceBlocks(editor.document, parsed);
+          } catch {
+            // Fallback: AI-generated Markdown/Raw Text stylized into blocks
+            const blocks = await editor.tryParseMarkdownToBlocks(initialContent);
+            editor.replaceBlocks(editor.document, blocks);
+          }
+        }
+      } finally {
+        setIsMounted(true);
+      }
+    };
+    init();
+  }, [editor]); // Runs ONLY once when this internal component mounts
+
+  // Sync changes back to Context
+  useEffect(() => {
+    if (!editor || !isMounted) return;
+
+    const unsub = editor.onChange(() => {
+      // Logic Guard: Only allow save if we are still on the same document
+      if (idRef.current === docId) {
+        onSave(JSON.stringify(editor.document));
+      }
+    });
+    return unsub;
+  }, [editor, isMounted, docId, onSave]);
+
+  return (
+    <BlockNoteView
+      editor={editor}
+      theme={theme === "dark" ? "dark" : "light"}
+      className="bg-transparent"
+    />
+  );
+}
+
+/**
+ * MAIN EXPORT: Handles lifecycle and resets based on selectedDocId.
+ */
+export default function Editor({ setChanged }: EditorProps) {
+  const { docs, content, setContent, selectedDocId } = useNote();
 
   const activeDoc = useMemo(
     () => docs.find((d) => d._id === selectedDocId),
     [docs, selectedDocId]
   );
 
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const handleSave = useCallback((val: string) => {
+    if (val === content) return;
+    setContent(val);
+    setChanged(true);
+  }, [content, setContent, setChanged]);
 
-  // ==========================
-  // LOAD CONTENT (ONLY FOR NOTES)
-  // ==========================
-  useEffect(() => {
-    if (!editor || !activeDoc) return;
+  if (!activeDoc || activeDoc.type !== "note") return null;
 
-    // 🚫 If not a note → don't load into BlockNote
-    if (activeDoc.type !== "note") return;
-
-    if (!content) {
-      editor.replaceBlocks(editor.document, []);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(content);
-      editor.replaceBlocks(editor.document, parsed);
-    } catch {
-      editor.replaceBlocks(editor.document, [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: content }],
-        },
-      ] as any);
-    }
-
-    setHasLoaded(true);
-  }, [editor, activeDoc, selectedDocId]);
-
-  // ==========================
-  // HANDLE CHANGES
-  // ==========================
-  useEffect(() => {
-    if (!editor || !activeDoc) return;
-    if (activeDoc.type !== "note") return;
-
-    const unsubscribe = editor.onChange(() => {
-      const json = JSON.stringify(editor.document);
-      setContent(json);
-      setChanged(true);
-    });
-
-    return unsubscribe;
-  }, [editor, activeDoc, setContent, setChanged]);
-
-  // Reset when switching documents
-  useEffect(() => {
-    setHasLoaded(false);
-  }, [selectedDocId]);
-
-  // ==========================
-  // CTRL + S
-  // ==========================
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent("save_note"));
-      }
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
-  // ==========================
-  // SAFETY CHECK
-  // ==========================
-  if (!activeDoc || activeDoc.type !== "note") {
-    return null; // Only render for notes
-  }
-
-  // ==========================
-  // RENDER
-  // ==========================
   return (
     <div className="bg-background w-full h-full overflow-y-auto custom-scrollbar">
       <div className="p-8 max-w-5xl mx-auto pb-96">
-        <BlockNoteView
-          editor={editor}
-          theme={theme === "dark" ? "dark" : "light"}
-          className="bg-transparent"
+        {/* CRITICAL FIX: Adding key={selectedDocId} forces React to 
+          completely destroy the previous editor instance immediately. 
+          This prevents the "wrong content displayed" bug.
+        */}
+        <BlockNoteInternal 
+          key={selectedDocId} 
+          docId={selectedDocId}
+          initialContent={content || ""} 
+          onSave={handleSave}
         />
       </div>
     </div>

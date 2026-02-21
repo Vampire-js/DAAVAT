@@ -9,6 +9,7 @@ import {
   useEffect,
 } from "react";
 import { apiFetch } from "@/app/lib/api";
+import { useAuth } from "./AuthContext";
 
 /* ================= TYPES ================= */
 
@@ -66,6 +67,7 @@ type NoteContextType = {
 
   globalProgress: number | null;
   setGlobalProgress: (val: number | null) => void;
+  isTransitioning: boolean; 
 };
 
 /* ================= CONTEXT ================= */
@@ -73,35 +75,14 @@ type NoteContextType = {
 const NoteContext = createContext<NoteContextType | null>(null);
 
 export function NoteProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [docs, setDocs] = useState<Doc[]>([]);
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [selectedDocId, _setSelectedDocId] = useState<string | null>(null);
   const [content, setContent] = useState<string | undefined>(undefined);
   const [name, setName] = useState<string | null>(null);
   const [references, setReferences] = useState<Reference[]>([]);
   const [globalProgress, setGlobalProgress] = useState<number | null>(null);
-
-  /* ================= SYNC SELECTED DOC ================= */
-
-  useEffect(() => {
-    if (!selectedDocId) {
-      setContent("");
-      setName("");
-      setReferences([]);
-      return;
-    }
-
-    const activeDoc = docs.find((d) => d._id === selectedDocId);
-    if (!activeDoc) return;
-
-    setContent(activeDoc.content || "");
-    setName(activeDoc.name);
-
-    if (activeDoc.type === "note") {
-      setReferences(activeDoc.references || []);
-    } else {
-      setReferences([]);
-    }
-  }, [selectedDocId, docs]);
+  const [isTransitioning, setIsTransitioning] = useState(false); 
 
   /* ================= FETCH DOCS ================= */
 
@@ -116,9 +97,59 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /* ================= RESET ON LOGOUT/SWITCH ================= */
   useEffect(() => {
-    refreshDocs();
-  }, [refreshDocs]);
+    setDocs([]);
+    _setSelectedDocId(null);
+    setContent(undefined);
+    setReferences([]);
+    setName(null);
+
+    if (user) {
+      refreshDocs();
+    }
+  }, [user?.id, refreshDocs]);
+
+  /* ================= SYNC SELECTED DOC & TRANSITION LOCK ================= */
+
+  // Lock updates immediately on click to prevent "bleeding" from old content
+  const setSelectedDocId = useCallback((id: string | null) => {
+    setIsTransitioning(true); 
+    _setSelectedDocId(id);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDocId) {
+      setContent("");
+      setName("");
+      setReferences([]);
+      setIsTransitioning(false);
+      return;
+    }
+
+    const activeDoc = docs.find((d) => d._id === selectedDocId);
+    if (!activeDoc) return;
+
+    // Load data into states
+    setContent(activeDoc.content || "");
+    setName(activeDoc.name);
+
+    if (activeDoc.type === "note") {
+      setReferences(activeDoc.references || []);
+    } else {
+      setReferences([]);
+    }
+
+    // Unlock updates after a small delay to ensure Editor has processed the new state
+    const timer = setTimeout(() => setIsTransitioning(false), 50);
+    return () => clearTimeout(timer);
+  }, [selectedDocId, docs]);
+
+  // Wrap setContent to ignore updates during transition
+  const safeSetContent = useCallback((val: string | undefined) => {
+    if (isTransitioning) return; 
+    setContent(val);
+  }, [isTransitioning]);
 
   /* ================= ADD DOCUMENT ================= */
 
@@ -159,7 +190,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       const savedDoc = await response.json();
 
       setDocs((prev) => [...prev, savedDoc]);
-      setSelectedDocId(savedDoc._id);
+      _setSelectedDocId(savedDoc._id);
 
       await refreshDocs();
       return savedDoc;
@@ -263,7 +294,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
         selectedDocId,
         setSelectedDocId,
         content,
-        setContent,
+        setContent: safeSetContent, // Using the locked wrapper
         name,
         setName,
         addNote,
@@ -274,6 +305,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
         addReference,
         globalProgress,
         setGlobalProgress,
+        isTransitioning, //
       }}
     >
       {children}

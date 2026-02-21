@@ -256,7 +256,7 @@ async def generate_diagram(text_content, file_id): # Made Async
         
         try:
             subprocess.run(["dot", "-Tpng", dot_path, "-o", png_path], check=True, stderr=subprocess.PIPE)
-            image_url = f"http://127.0.0.1:8000/{png_path}"
+            image_url = f"http://127.0.0.1:8000/tmp/{file_id}.png"
         except subprocess.CalledProcessError as e:
             print(f"   ❌ Graphviz Syntax Error: {e.stderr.decode()}")
         except Exception as e:

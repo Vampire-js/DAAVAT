@@ -14,8 +14,8 @@ interface Message {
 }
 
 export function RagDoubtSolver() {
-  // 1. Updated destructuring to include references
-  const { content, selectedNoteId, references } = useNote(); 
+  // Updated destructuring to use correct context variable names
+  const { content, selectedDocId, references } = useNote(); 
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,25 +30,19 @@ export function RagDoubtSolver() {
   // Keyboard Shortcuts Hook
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Shortcut to OPEN: Ctrl+K or Cmd+K
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setIsExpanded(true);
-        // Focus the input field after expanding
         setTimeout(() => inputRef.current?.focus(), 100);
       }
-
-      // Shortcut to CLOSE: Escape key
       if (e.key === "Escape" && isExpanded) {
         setIsExpanded(false);
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isExpanded]);
 
-  // Auto-scroll to bottom of chat
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -72,10 +66,11 @@ export function RagDoubtSolver() {
     }
   };
 
-  // 2. Updated Effect to trigger immediately on ID switch and include references
+  // Synchronized Indexing logic triggered on document switch
   useEffect(() => {
     const ingestNote = async () => {
-      // Combine Editor text + all Source contents
+      if (!selectedDocId) return;
+
       const plainText = extractTextFromBlocks(content || "");
       const sourcesText = (references || [])
         .map(ref => `Source: ${ref.title}\n${ref.content}`)
@@ -83,7 +78,6 @@ export function RagDoubtSolver() {
       
       const combinedContext = `${plainText}\n\n${sourcesText}`;
 
-      // If combined content is still too short, set default concise questions
       if (combinedContext.trim().length < 50) {
         setSampleQuestions([
           "Summarize this note",
@@ -100,15 +94,14 @@ export function RagDoubtSolver() {
         const response = await fetch("http://localhost:8000/rag/ingest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: combinedContext }), // Now sends full context
+          body: JSON.stringify({ text: combinedContext }),
         });
 
         if (!response.ok) throw new Error("Ingestion failed");
         
-        console.log("✅ AI context updated for note:", selectedNoteId);
+        console.log("✅ AI context updated for note:", selectedDocId);
 
-        // GENERATE CUSTOM QUESTIONS BASED ON CONTEXT (e.g. JCPOA)
-        const questionPrompt = "Based on the provided text, generate 5 diverse and highly specific study questions. Make them context-aware (e.g., if it mentions JCPOA, ask to explain JCPOA). Keep them short and concise. Return ONLY the questions separated by newlines, no numbers or bullet points.";
+        const questionPrompt = "Based on the provided text, generate 5 diverse and highly specific study questions. Make them context-aware. Keep them short and concise. Return ONLY the questions separated by newlines, no numbers or bullet points.";
         const questionsRaw = await askDoubt(questionPrompt);
         const questionsArray = questionsRaw
           .split("\n")
@@ -124,8 +117,6 @@ export function RagDoubtSolver() {
         ]);
 
         processedContentRef.current = content || null; 
-        
-        // Clear history ONLY after successful ingestion of new content
         setMessages([]); 
 
       } catch (err) {
@@ -135,18 +126,15 @@ export function RagDoubtSolver() {
       }
     };
 
-    // Immediate cleanup when the note ID changes
-    if (selectedNoteId) {
-      // Clear messages immediately so the user doesn't see old ones while "Reading..."
+    if (selectedDocId) {
       setMessages([]); 
-      
       const timer = setTimeout(() => {
           ingestNote();
-      }, 1000); // Reduced delay to 1s for better responsiveness
+      }, 1000);
 
       return () => clearTimeout(timer);
     }
-  }, [selectedNoteId, content, references]); // Added references as a dependency
+  }, [selectedDocId, content, references]);
 
   const handleAsk = async (text?: string) => {
     const messageText = text || query.trim();
@@ -174,7 +162,6 @@ export function RagDoubtSolver() {
 
   return (
     <>
-      {/* 1. ELONGATED OVAL TEXTBOX (The Trigger) */}
       {!isExpanded && (
         <div className="relative group transition-all duration-300 transform hover:-translate-y-1 pointer-events-auto">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
@@ -203,19 +190,14 @@ export function RagDoubtSolver() {
         </div>
       )}
 
-      {/* 2. TRANSLUCENT FULL-SCREEN OVERLAY */}
       {isExpanded && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12 animate-in fade-in duration-500">
-          {/* Translucent Blur Backdrop */}
           <div 
             className="absolute inset-0 bg-neutral-950/40 backdrop-blur-2xl pointer-events-auto" 
             onClick={() => setIsExpanded(false)} 
           />
           
-          {/* Chat Workspace */}
           <div className="relative w-full max-w-5xl h-[85vh] flex flex-col pointer-events-auto">
-            
-            {/* Minimal Header */}
             <div className="flex items-center justify-between mb-6 px-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-indigo-600/20 border border-indigo-500/30 rounded-xl">
@@ -236,7 +218,6 @@ export function RagDoubtSolver() {
               </Button>
             </div>
 
-            {/* Conversation Flow */}
             <div 
               ref={scrollRef}
               className="flex-1 overflow-y-auto px-4 md:px-12 space-y-8 custom-scrollbar pb-12"
@@ -246,7 +227,6 @@ export function RagDoubtSolver() {
                   <Sparkles className="w-16 h-16 mb-4 text-indigo-500 opacity-30" />
                   <p className="text-2xl font-light text-white mb-8 opacity-30">What can I clarify for you today?</p>
                   
-                  {/* DYNAMIC TOP 5 QUESTIONS UI */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-3xl">
                     {sampleQuestions.map((q, i) => (
                       <button
@@ -297,7 +277,6 @@ export function RagDoubtSolver() {
               )}
             </div>
 
-            {/* Persistent Input Overlay */}
             <div className="px-4 md:px-12 py-8 mt-auto">
               <div className="relative max-w-4xl mx-auto group">
                 <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl blur opacity-25"></div>

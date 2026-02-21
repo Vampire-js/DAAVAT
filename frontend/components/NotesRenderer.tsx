@@ -42,7 +42,7 @@ import Editor from "./Editor";
 import { Graph } from "./Graph";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/app/lib/api";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useUI } from "@/app/contexts/AlertContext";
 
 interface SidebarProps {
@@ -69,7 +69,11 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
 
   const { showDialog } = useUI();
 
-  const activeDoc = docs.find((d) => d._id === selectedDocId);
+  // Verify the selectedDocId actually exists in the current account's docs array
+  const activeDoc = useMemo(() => 
+    docs.find((d) => d._id === selectedDocId),
+    [docs, selectedDocId]
+  );
 
   const editorRef = useRef<any>(null);
 
@@ -78,15 +82,9 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
   const [isGeneratingMap, setIsGeneratingMap] = useState(false);
 
   // ==========================
-  // GRAPH VIEW
+  // HOOKS (Must be at top level)
   // ==========================
-  if (selected === "graph") {
-    return <Graph setSelected={setSelected} />;
-  }
 
-  // ==========================
-  // TAB MANAGEMENT
-  // ==========================
   useEffect(() => {
     if (!selectedDocId || !activeDoc) return;
 
@@ -101,9 +99,6 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
     setMindMapUrl(null);
   }, [selectedDocId, activeDoc]);
 
-  // ==========================
-  // SAVE LOGIC (NOTE + BOARD)
-  // ==========================
   const saveChanges = useCallback(() => {
     if (!selectedDocId || !activeDoc) return;
 
@@ -143,7 +138,6 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
     }
   }, [selectedDocId, activeDoc, content, references]);
 
-  // Ctrl + S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -156,9 +150,6 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
     return () => window.removeEventListener("keydown", handler);
   }, [saveChanges]);
 
-  // ==========================
-  // TAB SWITCH
-  // ==========================
   const switchTab = async (tab: Tab) => {
     if (!tab.id) return;
 
@@ -208,9 +199,6 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
     }
   };
 
-  // ==========================
-  // CLOSE TAB
-  // ==========================
   const closeTab = (id: string | null) => {
     const tab = tabs.find((t) => t.id === id);
 
@@ -234,9 +222,6 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
     }
   };
 
-  // ==========================
-  // MIND MAP
-  // ==========================
   const generateMindMap = async () => {
     if (!content) return;
     setIsGeneratingMap(true);
@@ -259,8 +244,15 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
   };
 
   // ==========================
-  // EMPTY STATE
+  // CONDITIONAL RETURNS (Safe here)
   // ==========================
+
+  if (selected === "graph") {
+    return <Graph setSelected={setSelected} />;
+  }
+
+  // If the ID doesn't match a document in the CURRENT account, 
+  // treat it as no document selected.
   if (!selectedDocId || !activeDoc) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -317,6 +309,9 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
                 </Button>
               </DialogTrigger>
               <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Flashcard Generator</DialogTitle>
+                </DialogHeader>
                 <FlashcardGenerator isPopup />
               </DialogContent>
             </Dialog>
@@ -329,6 +324,9 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
                 </Button>
               </DialogTrigger>
               <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Quiz Generator</DialogTitle>
+                </DialogHeader>
                 <QuizGenerator isPopup />
               </DialogContent>
             </Dialog>
