@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNote } from "@/app/contexts/NotesContext"; 
-import { Send, Bot, User, Loader2, X, Sparkles, RefreshCw } from "lucide-react";
+import { Send, Bot, User, Loader2, X, Sparkles, RefreshCw, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { askDoubt } from "@/app/lib/api";
@@ -21,6 +21,7 @@ export function RagDoubtSolver() {
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isIndexing, setIsIndexing] = useState(false); 
+  const [sampleQuestions, setSampleQuestions] = useState<string[]>([]);
 
   const processedContentRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -82,8 +83,17 @@ export function RagDoubtSolver() {
       
       const combinedContext = `${plainText}\n\n${sourcesText}`;
 
-      // If combined content is still too short, the backend RAG won't index
-      if (combinedContext.trim().length < 50) return; 
+      // If combined content is still too short, set default concise questions
+      if (combinedContext.trim().length < 50) {
+        setSampleQuestions([
+          "Summarize this note",
+          "List key takeaways",
+          "Explain main concepts",
+          "Create study guide",
+          "Simplify content"
+        ]);
+        return;
+      }
 
       setIsIndexing(true);
       try {
@@ -96,6 +106,23 @@ export function RagDoubtSolver() {
         if (!response.ok) throw new Error("Ingestion failed");
         
         console.log("✅ AI context updated for note:", selectedNoteId);
+
+        // GENERATE CUSTOM QUESTIONS BASED ON CONTEXT (e.g. JCPOA)
+        const questionPrompt = "Based on the provided text, generate 5 diverse and highly specific study questions. Make them context-aware (e.g., if it mentions JCPOA, ask to explain JCPOA). Keep them short and concise. Return ONLY the questions separated by newlines, no numbers or bullet points.";
+        const questionsRaw = await askDoubt(questionPrompt);
+        const questionsArray = questionsRaw
+          .split("\n")
+          .filter(q => q.trim().length > 0)
+          .slice(0, 5);
+
+        setSampleQuestions(questionsArray.length > 0 ? questionsArray : [
+          "Summarize this note",
+          "List key takeaways",
+          "Explain main concepts",
+          "Create study guide",
+          "Simplify content"
+        ]);
+
         processedContentRef.current = content || null; 
         
         // Clear history ONLY after successful ingestion of new content
@@ -121,11 +148,12 @@ export function RagDoubtSolver() {
     }
   }, [selectedNoteId, content, references]); // Added references as a dependency
 
-  const handleAsk = async () => {
-    if (!query.trim()) return;
+  const handleAsk = async (text?: string) => {
+    const messageText = text || query.trim();
+    if (!messageText) return;
     if (!isExpanded) setIsExpanded(true);
 
-    const userMessage: Message = { role: "user", content: query.trim() };
+    const userMessage: Message = { role: "user", content: messageText };
     setMessages((prev) => [...prev, userMessage]);
     setQuery("");
     setIsLoading(true);
@@ -166,7 +194,7 @@ export function RagDoubtSolver() {
             />
             <Button 
               size="icon" 
-              onClick={handleAsk}
+              onClick={() => handleAsk()}
               className="rounded-full bg-neutral-800 hover:bg-indigo-600 w-10 h-10 shrink-0 transition-colors"
             >
               <Send className="w-4 h-4 text-white" />
@@ -214,9 +242,23 @@ export function RagDoubtSolver() {
               className="flex-1 overflow-y-auto px-4 md:px-12 space-y-8 custom-scrollbar pb-12"
             >
               {messages.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
-                  <Sparkles className="w-16 h-16 mb-4 text-indigo-500" />
-                  <p className="text-2xl font-light text-white">What can I clarify for you today?</p>
+                <div className="h-full flex flex-col items-center justify-center text-center">
+                  <Sparkles className="w-16 h-16 mb-4 text-indigo-500 opacity-30" />
+                  <p className="text-2xl font-light text-white mb-8 opacity-30">What can I clarify for you today?</p>
+                  
+                  {/* DYNAMIC TOP 5 QUESTIONS UI */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-3xl">
+                    {sampleQuestions.map((q, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleAsk(q)}
+                        className="flex items-center gap-3 text-left p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-indigo-600/20 hover:border-indigo-500/50 transition-all text-neutral-300 hover:text-white group"
+                      >
+                        <MessageSquare className="w-4 h-4 shrink-0 text-indigo-400 group-hover:scale-110 transition-transform" />
+                        <span className="text-sm font-medium">{q}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -270,7 +312,7 @@ export function RagDoubtSolver() {
                     className="h-16 bg-transparent border-none text-xl focus-visible:ring-0 px-6 text-white placeholder:text-neutral-500"
                   />
                   <Button 
-                    onClick={handleAsk} 
+                    onClick={() => handleAsk()} 
                     disabled={isLoading || !query.trim()} 
                     className="h-16 w-16 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition-all active:scale-95"
                   >
