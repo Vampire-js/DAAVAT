@@ -1,0 +1,9 @@
+digraph G {
+  rankdir=LR;
+  node [shape=box];
+  "Peaceful Nuclear Pursuit" -> "JCPOA Relevance";
+  "US Withdrawal Impact" -> "Enrichment Limitations";
+  "Enrichment Limitations" -> "Verification Mechanisms";
+  "Verification Mechanisms" -> "Future Cooperation";
+  "Future Cooperation" -> "Long-Term Vision";
+}
