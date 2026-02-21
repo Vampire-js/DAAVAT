@@ -29,7 +29,7 @@ type ToolKey = "live" | "help" | null;
 
 export default function Tools({ isCollapsed, setCollapsed }: { isCollapsed: boolean; setCollapsed: () => void }) {
   const [activeTool, setActiveTool] = useState<ToolKey>("live");
-  const { setGlobalProgress } = useNote();
+  const { setGlobalProgress, globalProgress } = useNote(); // Access globalProgress from context
   
   // --- STATE FOR DIALOG ---
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -37,10 +37,19 @@ export default function Tools({ isCollapsed, setCollapsed }: { isCollapsed: bool
   return (
     <div className="h-full flex flex-row-reverse overflow-hidden">
       
-      {/* 🔥 Progress Bar UI removed from here; now managed by NoteEditor via context */}
-
-      <div className="flex flex-col gap-3 bg-neutral-900 border-l border-neutral-800 p-2 w-16 items-center shrink-0 z-[60]">
+      {/* Sidebar Container */}
+      <div className="flex flex-col gap-3 bg-neutral-900 border-l border-neutral-800 p-2 w-16 items-center shrink-0 z-[60] relative">
         
+        {/* 🔥 LOCAL PROGRESS BAR: Contained within the 16-unit sidebar */}
+        {globalProgress !== null && (
+          <div className="absolute top-0 left-0 w-full h-1 bg-neutral-800 z-[70]">
+            <div 
+              className="h-full bg-indigo-500 transition-all duration-300 shadow-[0_0_8px_rgba(99,102,241,0.6)]" 
+              style={{ width: `${globalProgress}%` }}
+            />
+          </div>
+        )}
+
         {/* Toggle Sidebar */}
         <Button
           size="icon"
@@ -74,7 +83,6 @@ export default function Tools({ isCollapsed, setCollapsed }: { isCollapsed: bool
               </DialogDescription>
             </DialogHeader>
             
-            {/* --- PASSING PROPS TO CONTROL CLOSING AND PROGRESS --- */}
             <UnifiedAddTool 
               onClose={() => setIsDialogOpen(false)} 
               setProgress={setGlobalProgress} 

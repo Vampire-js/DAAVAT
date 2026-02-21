@@ -1,12 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
-import { Youtube, FileText, X, Loader2, Sparkles, Plus, Mic } from "lucide-react";
+// Added Lock icon for Pro options
+import { Youtube, FileText, X, Loader2, Sparkles, Plus, Mic, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNote } from "@/app/contexts/NotesContext"; 
 import { useUI } from "@/app/contexts/AlertContext";   
 import { ML_API_BASE } from "@/app/lib/api";
+// Import Tooltip components
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Define the available model sizes
 type ModelSize = "small" | "medium" | "large";
@@ -35,6 +43,11 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
   // Destructure updateNote from context to allow background updates
   const { addNote, folders, updateNote } = useNote(); 
   const { showAlert } = useUI();
+
+  // Added function to handle Pro Alert
+  const showProAlert = () => {
+    showAlert("Multi-language support is a Premium Feature. Please upgrade your plan to continue.", "info");
+  };
 
   const addLink = () => {
     if (!urlInput.trim()) return;
@@ -341,18 +354,38 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
         </div>
       </div>
 
-      {/* Generate Button */}
-      <Button
-        disabled={isProcessing || stagedItems.length === 0}
-        onClick={handleGenerateMasterNote}
-        className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold h-12"
-      >
-        {isProcessing ? (
-          <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Synthesizing...</>
-        ) : (
-          <><Sparkles className="w-5 h-5 mr-2" /> Generate Master Note</>
-        )}
-      </Button>
+      {/* Generate Button Container */}
+      <div className="space-y-3">
+        <Button
+          disabled={isProcessing || stagedItems.length === 0}
+          onClick={handleGenerateMasterNote}
+          className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold h-12"
+        >
+          {isProcessing ? (
+            <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Synthesizing...</>
+          ) : (
+            <><Sparkles className="w-5 h-5 mr-2" /> Generate Master Note</>
+          )}
+        </Button>
+
+        {/* PRO OPTIONS - Display message on hover using Tooltip */}
+        <TooltipProvider>
+          <Tooltip delayDuration={100}>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="w-full border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-400 text-[11px] font-bold uppercase tracking-wider h-8 flex items-center justify-center gap-2 cursor-default"
+              >
+                <Lock className="w-3 h-3" />
+                Pro Options: Multi-Language Support
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="bg-neutral-900 border-neutral-800 text-indigo-400">
+              <p>Multi-language support is a Premium Feature. Please upgrade your plan to continue.</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </div>
   );
 }
