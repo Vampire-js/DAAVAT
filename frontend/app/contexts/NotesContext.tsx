@@ -21,7 +21,7 @@ type Doc = {
 
 type NoteContextType = {
   docs: Doc[];
-  folders: Doc[]; // Add this line
+  folders: Doc[]; 
   refreshDocs: () => Promise<void>;
   selectedNoteId: string | null;
   setSelectedNoteId: (id: string | null) => void;
@@ -29,14 +29,15 @@ type NoteContextType = {
   setContent: (text: string | undefined) => void;
   name: string | null;
   setName: (text: string | null) => void;
-  // 🔥 Updated signature to accept references
+  // 🔥 Updated signature to accept references and return the created Doc
   addNote: (note: { 
     title: string; 
     content: string; 
-    parentId?: string | null; // 1. Add this line
+    parentId?: string | null; 
     tags?: string[]; 
     references?: Omit<Reference, 'id'>[] 
-  }) => Promise<void>;
+  }) => Promise<Doc>; 
+  updateNote: (noteID: string, updates: Partial<Doc>) => Promise<void>; // 🔥 Add this
   references: Reference[];
   setReferences: (refs: Reference[]) => void;
   addReference: (ref: Omit<Reference, 'id'>) => Promise<void>;
@@ -52,8 +53,6 @@ export function NoteProvider({ children }: { children: ReactNode }) {
   const [references, setReferences] = useState<Reference[]>([]);
 
   // 1. Sync State with Docs Array
-  // This ensures that when you click a note in the sidebar, 
-  // the Editor sees the content and the sources from the DB.
   useEffect(() => {
     if (selectedNoteId) {
       const activeNote = docs.find((d) => d._id === selectedNoteId);
@@ -85,14 +84,37 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     refreshDocs();
   }, [refreshDocs]);
 
-  // 3. Updated addReference to use your existing /updateNote route
+  // 🔥 Add the updateNote function logic
+  const updateNote = useCallback(async (noteID: string, updates: Partial<Doc>) => {
+    try {
+      const response = await apiFetch("/fileTree/updateNote", {
+        method: "POST",
+        body: JSON.stringify({
+          noteID,
+          ...updates // Sends content, references, etc.
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update note");
+
+      // Update local state immediately so the editor reflects changes
+      setDocs((prev) =>
+        prev.map((doc) => (doc._id === noteID ? { ...doc, ...updates } : doc))
+      );
+      
+      await refreshDocs(); // Sync with server
+    } catch (err) {
+      console.error("Error updating note:", err);
+      throw err;
+    }
+  }, [refreshDocs]);
+
   const addReference = useCallback(async (ref: Omit<Reference, 'id'>) => {
     if (!selectedNoteId) return;
 
     const newRef = { ...ref, id: Date.now().toString() };
     const updatedReferences = [...references, newRef];
 
-    // Optimistic Update (Immediate UI response)
     setReferences(updatedReferences);
 
     try {
@@ -113,30 +135,26 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedNoteId, references, content, refreshDocs]);
 
-  // 🔥 UPDATED: Now accepts references, sends them to backend, and updates local state instantly
   const addNote = async (newNote: { 
     title: string; 
     content: string; 
-    parentId?: string | null; // 1. Add this line
+    parentId?: string | null; 
     tags?: string[]; 
     references?: Omit<Reference, 'id'>[] 
   }) => {
     try {
-      // 1. Generate IDs for the references
       const refsWithIds = newNote.references?.map(r => ({
         ...r,
         id: Math.random().toString(36).substring(2, 9)
       })) || [];
 
-      // Find the apiFetch call inside addNote:
       const response = await apiFetch("/fileTree/addNote", {
         method: "POST",
         body: JSON.stringify({
           name: newNote.title,
           content: newNote.content,
-          parentId: newNote.parentId || null, // 2. Change this line
+          parentId: newNote.parentId || null, 
           order: Date.now(),
-          // 2. 🔥 ACTUALLY SEND THE DATA TO BACKEND
           references: refsWithIds 
         }),
       });
@@ -144,27 +162,23 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       if (!response.ok) throw new Error("Failed to save note");
       const savedNote = await response.json();
       
-      // 3. 🔥 STABILITY FIX: Manually update the docs list before switching ID.
-      // This stops the race condition where the UI loads before refreshDocs() finishes.
       setDocs(prev => [...prev, savedNote]);
-      
-      // Trigger the selection - useEffect will now find 'savedNote' immediately
       setSelectedNoteId(savedNote._id);
-      
-      // Background sync
       refreshDocs();
+
+      return savedNote; 
     } catch (error) {
       console.error("Error adding note:", error);
+      throw error; 
     }
   };
 
-  // Inside NoteProvider component, calculate folders from docs
   const folders = docs.filter((d) => d.type === "folder");
 
   return (
     <NoteContext.Provider value={{ 
       docs, folders, refreshDocs, selectedNoteId, setSelectedNoteId, 
-      content, setContent, name, setName, addNote,
+      content, setContent, name, setName, addNote, updateNote,
       references, setReferences, addReference
     }}>
       {children}

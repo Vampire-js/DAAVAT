@@ -18,17 +18,22 @@ interface StagedItem {
   value: string | File;
 }
 
-export default function UnifiedAddTool() {
+// 1. Added Interface for props to support parent callbacks
+interface UnifiedAddToolProps {
+  onClose?: () => void;
+  setProgress?: (progress: number | null) => void;
+}
+
+export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolProps) {
   const [stagedItems, setStagedItems] = useState<StagedItem[]>([]);
   const [urlInput, setUrlInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [modelSize, setModelSize] = useState<ModelSize>("medium"); 
   const [noteTitle, setNoteTitle] = useState("");
-  // Inside UnifiedAddTool component
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   
-  // Pull 'folders' from your existing context (Assuming folders are stored in your state)
-  const { addNote, folders } = useNote(); // Ensure 'folders' is exported from your context
+  // Destructure updateNote from context to allow background updates
+  const { addNote, folders, updateNote } = useNote(); 
   const { showAlert } = useUI();
 
   const addLink = () => {
@@ -73,6 +78,36 @@ export default function UnifiedAddTool() {
 
   const handleGenerateMasterNote = async () => {
     if (stagedItems.length === 0) return;
+
+    const isSingleSource = stagedItems.length === 1;
+    const finalTitle = noteTitle.trim() 
+      ? noteTitle.trim() 
+      : isSingleSource 
+        ? stagedItems[0].name 
+        : `Master Note: ${new Date().toLocaleDateString()}`;
+
+    // 1. Create placeholder and close modal
+    let tempNote;
+    try {
+      tempNote = await addNote({
+        title: finalTitle,
+        content: "### 🪄 Processing Sources...\nYour summary and references will appear here shortly.",
+        parentId: selectedFolderId,
+        tags: ["processing"],
+        references: []
+      });
+
+      // CRITICAL CHECK: Ensure addNote actually returned an object with an _id
+      if (!tempNote || !tempNote._id) {
+        throw new Error("Failed to create initial placeholder note.");
+      }
+    } catch (err) {
+      console.error("Initial note creation failed:", err);
+      showAlert("Could not initialize note. Please try again.", "error");
+      return; // Stop execution if we don't have a note to update
+    }
+
+    if (onClose) onClose();
     setIsProcessing(true);
 
     try {
@@ -85,50 +120,67 @@ export default function UnifiedAddTool() {
       formData.append("links", JSON.stringify(links));
       formData.append("model_size", modelSize); 
 
-      // Send both documents and audio files
       stagedItems
         .filter((item) => item.type === "document" || item.type === "audio")
         .forEach((item) => {
           formData.append("files", item.value as File);
         });
 
-      // 1. Fetch synthesis from ML Backend
       const response = await fetch(`${ML_API_BASE}/generate_master_note`, {
         method: "POST",
         body: formData,
       });
 
       if (!response.ok) throw new Error("Synthesis failed");
-      const data = await response.json();
-      
+
+      // --- REAL-TIME STREAM READER ---
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let finalData = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          
+          // Check if the chunk contains a progress update from backend
+          try {
+            const lines = chunk.split("\n");
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              const parsed = JSON.parse(line);
+              
+              if (parsed.progress && setProgress) {
+                setProgress(parsed.progress); // Real progress from console/backend!
+              }
+              if (parsed.final_result) {
+                finalData = JSON.stringify(parsed.final_result);
+              }
+            }
+          } catch (e) {
+            // If chunk isn't JSON, it might be the final raw data
+            finalData += chunk;
+          }
+        }
+      }
+
+      // 2. Update note with final data
+      const data = JSON.parse(finalData);
       console.log("ML Backend Data Received:", data);
 
-      // Determine if we need a "Master" layout or a "Single Source" layout
-      const isSingleSource = stagedItems.length === 1;
-      
-      // If only one file, use its specific summary; otherwise use the meta_summary
       const finalContent = isSingleSource 
         ? (data.sources?.[0]?.summary || data.meta_summary) 
         : data.meta_summary;
 
-      const finalTitle = noteTitle.trim() 
-        ? noteTitle.trim() 
-        : isSingleSource 
-          ? stagedItems[0].name 
-          : `Master Note: ${new Date().toLocaleDateString()}`;
-
-      // 2. 🔥 THE FIX: Combine Summary and Transcript into the 'content' field
       const processedReferences = (data.sources || []).map((source: any) => {
         const isVideo = source.type === "video" || source.type === "YouTube";
         const isAudio = source.type === "audio" || source.source === "Audio";
-        
-        // Match the enum in your MongoDB Schema: ["YouTube", "PDF", "Audio"]
         const dbSource = isVideo ? "YouTube" : isAudio ? "Audio" : "PDF";
         
-        // Build a combined Markdown string for the DB
         let combinedContent = `**Summary:**\n${source.summary || "No summary available."}\n\n`;
         
-        // Add the transcript if it exists and is not a PDF
         if ((isVideo || isAudio) && source.full_text) {
              combinedContent += `**Transcript:**\n${source.full_text}`;
         }
@@ -140,20 +192,25 @@ export default function UnifiedAddTool() {
         };
       });
 
-      // 3. 🔥 Send EVERYTHING in ONE call to avoid state race conditions
-      await addNote({
-        title: finalTitle,
+      // 6. UPDATE THE EXISTING NOTE WITH FINAL DATA
+      await updateNote(tempNote._id, {
         content: finalContent,
-        parentId: selectedFolderId, // 🔥 This links the note to the selected folder
         tags: isSingleSource ? ["single-source"] : ["synthesis", "multi-source"],
         references: processedReferences 
       });
 
+      // 7. Hit the finish line
+      if (setProgress) setProgress(100);
       showAlert(isSingleSource ? "Source processed!" : "Master Study Note generated with sources!", "success");
+      
+      // 8. Cleanup: Wait for the 100% animation to finish before hiding
+      setTimeout(() => { if (setProgress) setProgress(null); }, 1200);
+
       setStagedItems([]);
       setNoteTitle("");
     } catch (error) {
       console.error("Synthesis Error:", error);
+      if (setProgress) setProgress(null);
       showAlert("Failed to synthesize sources.", "error");
     } finally {
       setIsProcessing(false);
@@ -236,7 +293,6 @@ export default function UnifiedAddTool() {
           </Button>
         </div>
 
-        {/* UPDATED ACCEPT ATTRIBUTE */}
         <div className="relative border-2 border-dashed border-neutral-800 rounded-xl p-6 hover:border-orange-500/50 transition-colors text-center group">
           <input
             type="file"

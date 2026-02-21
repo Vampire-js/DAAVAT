@@ -1,3 +1,11 @@
+/* frontend/app/globals.css */
+
+/* --- Progress Bar Animation --- */
+@keyframes progress-stripe {
+  from { background-position: 0 0; }
+  to { background-position: 40px 0; }
+}
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -66,7 +74,7 @@
   }
 
   .dark {
-    /* Obsidian Dark Theme (Your existing theme) */
+    /* Obsidian Dark Theme */
     --background: hsl(210 4% 10%);
     --foreground: hsl(210 4% 80%);
     --card: hsl(210 4% 13%);
@@ -91,14 +99,13 @@
     @apply bg-background text-foreground transition-colors duration-300;
   }
 
-  /* Force BlockNote to use our theme variables - Syncs with Toggle */
+  /* Force BlockNote to use our theme variables */
   .bn-editor,
   .bn-root {
     background-color: var(--background) !important;
     color: var(--foreground) !important;
   }
 
-  /* Syncs menus with current theme state */
   .bn-side-menu, 
   .bn-slash-menu,
   .bn-suggestion-menu {
@@ -113,7 +120,7 @@
   }
 }
 
-/* Custom scrollbar - Dynamic colors */
+/* Custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
 }
@@ -164,7 +171,7 @@
     animation: spectrum-bar 0.8s ease-in-out infinite;
   }
 
-  /* Siri-style Fluid Visualizer Animations */
+  /* Siri-style Visualizer Animations */
   @keyframes siri-rotate {
     0% { transform: rotate(0deg) scale(1); }
     33% { transform: rotate(120deg) scale(1.1); }
