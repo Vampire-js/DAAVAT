@@ -11,7 +11,10 @@ import {
   File, 
   Mic,
   BrainCircuit,
-  Layers 
+  Layers,
+  Lock,
+  Zap,
+  ChevronDown
 } from "lucide-react";
 import {
   Dialog,
@@ -21,6 +24,12 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import QuizGenerator from "./QuizGenerator";
 import FlashcardGenerator from "./FlashcardGenerator"; 
 import { apiFetch } from "@/app/lib/api";
@@ -87,14 +96,20 @@ export default function NotesRenderer() {
     setContent,
     name,
     references,
-    setReferences,
-    globalProgress // 🔥 Added from context
+    setReferences
   } = useNote();
   const [tabs, setTabs] = useState<Tab[]>([]);
   const { showDialog } = useUI();
   const { logout } = useAuth();
   const [mindMapUrl, setMindMapUrl] = useState<string | null>(null);
   const [isGeneratingMap, setIsGeneratingMap] = useState(false);
+
+  const sampleMindMaps = [
+    "/samples/mindmap1.png",
+    "/samples/mindmap2.png",
+    "/samples/mindmap3.png",
+    "/samples/mindmap4.png",
+  ];
 
   useEffect(() => {
     if (!selectedNoteId) return;
@@ -319,43 +334,85 @@ export default function NotesRenderer() {
           </Dialog>
 
           {!mindMapUrl && (
-            <Button
-              onClick={generateMindMap}
-              disabled={isGeneratingMap || !content}
-              size="sm"
-              variant="outline"
-              className="bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent"
-            >
-              {isGeneratingMap ? <Loader2 className="animate-spin mr-2 h-3 w-3"/> : <Sparkles className="mr-2 h-3 w-3 text-yellow-500"/>}
-              Generate Mind Map
-            </Button>
+            <div className="flex items-center">
+              <DropdownMenu>
+                <div className="flex items-center">
+                  <Button
+                    onClick={generateMindMap}
+                    disabled={isGeneratingMap || !content}
+                    size="sm"
+                    variant="outline"
+                    className="rounded-r-none border-r-0 bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                  >
+                    {isGeneratingMap ? (
+                      <Loader2 className="animate-spin mr-2 h-3 w-3"/>
+                    ) : (
+                      <ImageIcon className="mr-2 h-3 w-3 text-blue-400"/>
+                    )}
+                    Generate Mind Map
+                  </Button>
+
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-l-none px-2 bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </div>
+
+                <DropdownMenuContent align="end" className="bg-neutral-900 border-neutral-800 text-white">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer hover:bg-neutral-800 focus:bg-neutral-800">
+                        <Zap className="mr-2 h-4 w-4 text-yellow-500" />
+                        <span>View Pro Features</span>
+                      </DropdownMenuItem>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[700px] bg-neutral-950 border-neutral-800 text-white p-6">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl">
+                          <Sparkles className="w-5 h-5 text-yellow-500" />
+                          <span>Nano Banana Pro</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-neutral-400">
+                          Upgrade to unlock advanced layouts and high-fidelity visuals.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="mt-4">
+                        <h4 className="text-sm font-semibold mb-4 text-neutral-200">Pro Version Samples:</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          {sampleMindMaps.map((src, idx) => (
+                            <div key={idx} className="aspect-video bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden group">
+                              <img 
+                                src={src} 
+                                alt={`Sample ${idx + 1}`} 
+                                className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-8 flex flex-col items-center gap-4 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+                        <div className="text-center">
+                          <p className="font-bold text-lg text-indigo-300">Upgrade to Pro</p>
+                          <p className="text-xs text-neutral-400">Unlimited Mind Maps & Priority Support</p>
+                        </div>
+                        <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
+                          <Lock className="w-4 h-4 mr-2" /> Upgrade Now - $9.99/mo
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           )}
         </div>
-
-        {/* --- RECTANGULAR THEMED PROGRESS BAR (IN-LINE BELOW BUTTONS) --- */}
-        {globalProgress !== null && (
-          <div className="w-full px-4 py-2 border-t border-border bg-neutral-50 dark:bg-neutral-900/20 animate-in fade-in slide-in-from-top-1 duration-300">
-            <div className="flex items-center gap-4 max-w-5xl mx-auto">
-              {/* Progress Container */}
-              <div className="flex-1 bg-neutral-200 dark:bg-neutral-800 rounded-sm h-1.5 overflow-hidden relative">
-                {/* The Fill - Neutral Grey Theme */}
-                <div 
-                  className="h-full bg-neutral-400 dark:bg-neutral-500 transition-all duration-500 ease-out"
-                  style={{ width: `${globalProgress}%` }}
-                />
-              </div>
-              {/* Status Label */}
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[9px] font-black uppercase tracking-widest text-neutral-400 dark:text-neutral-500">
-                  Synthesizing
-                </span>
-                <span className="text-[10px] font-mono font-bold text-neutral-600 dark:text-neutral-400 w-10">
-                  {globalProgress}%
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
 
         {mindMapUrl && (
           <div className="w-full bg-card/50 border-b border-border p-4 relative animate-in slide-in-from-top-2">
