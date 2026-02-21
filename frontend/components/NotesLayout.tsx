@@ -6,7 +6,6 @@ import NotesList from "./NotesList";
 import NotesRenderer from "./NotesRenderer";
 import Tools from "./Tools";
 import { RagDoubtSolver } from "@/components/tools/RagDoubtSolver"; 
-import QuizGenerator from "@/components/QuizGenerator";
 
 export default function NotesLayout() {
   const toolsPanelRef = useRef<any>(null);
@@ -25,26 +24,32 @@ export default function NotesLayout() {
   };
 
   return (
-    <div className="relative h-screen bg-neutral-950 overflow-hidden text-white">
+    <div className="relative h-screen bg-background overflow-hidden text-foreground">
       <PanelGroup direction="horizontal" className="h-full">
         
-        {/* Left Panel: Notes List */}
-        <Panel defaultSize={20} minSize={20} maxSize={30} className="border-r border-white/10">
+        {/* Left Panel Sidebar: Lighter Gray (bg-card) */}
+        <Panel 
+          defaultSize={20} 
+          minSize={20} 
+          maxSize={30} 
+          className="border-r border-border bg-card"
+        >
           <NotesList />
         </Panel>
 
-        <PanelResizeHandle className="w-1 bg-neutral-900 hover:bg-blue-500/50 transition-colors cursor-col-resize" />
+        {/* Minimalist Resize Handle: Razor-thin line */}
+        <PanelResizeHandle className="w-[1px] bg-border hover:bg-muted-foreground/20 transition-colors cursor-col-resize" />
 
-        {/* Center Panel: Note Content + AI Input Overlay */}
+        {/* Center Panel Editor: Deepest Gray (bg-background) */}
         <Panel minSize={40}>
-          <div className="h-full w-full flex flex-col relative bg-neutral-900/50">
+          <div className="h-full w-full flex flex-col relative bg-background">
             
             {/* The Note Editor/Renderer */}
             <div className="flex-1 overflow-y-auto min-h-0 pb-32 scroll-smooth custom-scrollbar">
                <NotesRenderer />
             </div>
 
-            {/* Standalone Floating AI Textbox Trigger */}
+            {/* AI Input Overlay - Maintained floating logic */}
             <div className="absolute bottom-8 left-0 right-0 z-50 flex justify-center pointer-events-none">
                 <div className="pointer-events-auto w-full max-w-2xl px-6">
                     <RagDoubtSolver />
@@ -53,10 +58,9 @@ export default function NotesLayout() {
           </div>
         </Panel>
 
-        {/* Handle between Editor and Tools */}
-        <PanelResizeHandle className="w-1 bg-neutral-900 hover:bg-blue-500/50 transition-colors cursor-col-resize" />
+        <PanelResizeHandle className="w-[1px] bg-border hover:bg-muted-foreground/20 transition-colors cursor-col-resize" />
 
-        {/* Right Panel: Tools */}
+        {/* Right Panel Tools: Intermediate Gray (bg-secondary/30) */}
         <Panel
           defaultSize={4}
           minSize={15}
@@ -65,7 +69,7 @@ export default function NotesLayout() {
           ref={toolsPanelRef}
           onCollapse={() => setIsToolsOpen(false)}
           onExpand={() => setIsToolsOpen(true)}
-          className="border-l border-white/10 bg-neutral-950 transition-all duration-300 ease-in-out"
+          className="border-l border-border bg-secondary/30 transition-all duration-300 ease-in-out"
         >
           <Tools isCollapsed={!isToolsOpen} setCollapsed={toggleToolsPanel} />
         </Panel>

@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { NoteProvider } from "./contexts/NotesContext";
 import { UIProvider } from "./contexts/AlertContext";
+import { ThemeProvider } from "next-themes";
 import "@blocknote/react/style.css";
 
 const geistSans = Geist({
@@ -27,17 +28,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    /* suppressHydrationWarning is required for next-themes to prevent hydration mismatch */
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          <NoteProvider>
-            <UIProvider>
-        {children}
-        </UIProvider>
-        </NoteProvider>
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>
+            <NoteProvider>
+              <UIProvider>
+                {children}
+              </UIProvider>
+            </NoteProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -18,7 +18,6 @@ import { useNote } from "@/app/contexts/NotesContext";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUI } from "@/app/contexts/AlertContext";
 
-// Define the Doc type locally or import it if shared
 type Doc = {
   _id: string;
   name: string;
@@ -30,8 +29,6 @@ type Doc = {
 
 export default function NotesList() {
   const { user, logout } = useAuth();
-  
-  // 1. Consume docs and refreshDocs from Context instead of local state
   const { 
     docs, 
     refreshDocs, 
@@ -45,12 +42,10 @@ export default function NotesList() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["root"]));
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // 2. Initial load uses the global refresh function
   useEffect(() => {
     refreshDocs();
   }, [refreshDocs]);
 
-  // 3. Tree structure now reacts to the global 'docs' array
   const childrenMap = useMemo(() => {
     const map: Record<string, Doc[]> = {};
     if (!Array.isArray(docs)) return map;
@@ -80,7 +75,6 @@ export default function NotesList() {
         method: "POST",
         body: JSON.stringify({ name, parentId: getParentForNewItem(), order: Date.now() })
       });
-      // 4. Trigger global refresh so all components stay in sync
       refreshDocs(); 
     } catch (e) { 
       console.error(e); 
@@ -96,7 +90,6 @@ export default function NotesList() {
         method: "POST",
         body: JSON.stringify({ name, parentId: getParentForNewItem(), order: Date.now(), content: "" })
       });
-      // 5. Trigger global refresh
       refreshDocs();
     } catch (e) { 
       console.error(e); 
@@ -117,7 +110,7 @@ export default function NotesList() {
     if (!children) return null;
 
     return (
-      <ul className="ml-4 border-l border-white/5 pl-2 space-y-1">
+      <ul className="ml-4 border-l border-border pl-2 space-y-1">
         {children.map(doc => (
           <li key={doc._id}>
             <div
@@ -137,12 +130,12 @@ export default function NotesList() {
                 }
               }}
               className={`flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer select-none transition-colors
-                ${selectedId === doc._id ? "bg-neutral-800 text-white" : "text-neutral-400 hover:bg-neutral-800/50"}`}
+                ${selectedId === doc._id ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50"}`}
             >
               {doc.type === 'folder' && (
                 expanded.has(doc._id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />
               )}
-              {doc.type === 'folder' ? <FolderIcon size={16} className="text-blue-400" /> : <FileIcon size={16} className="text-emerald-400" />}
+              {doc.type === 'folder' ? <FolderIcon size={16} className="text-primary" /> : <FileIcon size={16} className="text-emerald-500" />}
               <span className="truncate text-sm">{doc.name}</span>
             </div>
             {doc.type === 'folder' && expanded.has(doc._id) && renderChildren(doc._id)}
@@ -153,21 +146,23 @@ export default function NotesList() {
   };
 
   return (
-    <div className="flex w-full h-screen bg-[#0a0a0a]">
-      <div className="w-12 border-r border-white/10 flex flex-col items-center py-4 gap-4 bg-neutral-950">
-         <img src="/Logo.svg" className="w-6 opacity-80" alt="Logo" />
-         <Button variant="ghost" size="icon" className="text-neutral-400"><NotebookIcon/></Button>
-         <Button variant="ghost" size="icon" className="text-neutral-400"><GitGraphIcon/></Button>
+    <div className="flex w-full h-screen bg-transparent">
+      {/* Icon Rail - Darker background to frame the content */}
+      <div className="w-12 border-r border-border flex flex-col items-center py-4 gap-4 bg-background/50">
+         <img src="/Logo.svg" className="w-6" alt="Logo" />
+         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground"><NotebookIcon/></Button>
+         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground"><GitGraphIcon/></Button>
       </div>
 
-      <div className="w-[280px] border-r border-white/10 flex flex-col p-4 bg-neutral-950/50">
-        <div className="font-bold text-neutral-200 text-lg mb-6 tracking-tight">DAAVAT.</div>
+      {/* Sidebar Content - Lighter grey card surface */}
+      <div className="w-[280px] border-r border-border flex flex-col p-4 bg-card">
+        <div className="font-bold text-foreground text-lg mb-6 tracking-tight">DAAVAT.</div>
         
         <div className="flex gap-2 mb-4">
-          <Button variant="outline" className="flex-1 h-8 text-xs bg-neutral-900 border-neutral-800" onClick={addFolder}>
+          <Button variant="outline" className="flex-1 h-8 text-xs bg-background border-border" onClick={addFolder}>
             <FolderPlusIcon size={14} className="mr-2" /> Folder
           </Button>
-          <Button variant="outline" className="flex-1 h-8 text-xs bg-neutral-900 border-neutral-800" onClick={addNote}>
+          <Button variant="outline" className="flex-1 h-8 text-xs bg-background border-border" onClick={addNote}>
             <FilePlus size={14} className="mr-2" /> Note
           </Button>
         </div>
@@ -176,12 +171,13 @@ export default function NotesList() {
           {renderChildren("root")}
         </div>
 
-        <div className="pt-4 border-t border-white/10 flex items-center justify-between mt-2">
+        {/* User Footer */}
+        <div className="pt-4 border-t border-border flex items-center justify-between mt-2">
           <div className="flex items-center gap-2">
              <img className="w-6 h-6 rounded-full" src={`https://ui-avatars.com/api/?name=${user?.name}`} alt="avatar" />
-             <span className="text-xs text-neutral-400">{user?.name}</span>
+             <span className="text-xs text-muted-foreground">{user?.name}</span>
           </div>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-500 hover:text-red-400" onClick={logout}>
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={logout}>
             <LogOutIcon size={14}/>
           </Button>
         </div>
