@@ -1,9 +1,0 @@
-digraph G {
-  rankdir=LR;
-  node [shape=box];
-  "Peaceful Intent" -> "JCPOA Overview";
-  "JCPOA Overview" -> "Impact of US Withdrawal";
-  "Impact of US Withdrawal" -> "Mutual Commitment";
-  "Mutual Commitment" -> "Implementation Timeline";
-  "Implementation Timeline" -> "Transparency Measures";
-}
