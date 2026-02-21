@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { useNote } from "@/app/contexts/NotesContext";
 import "@blocknote/core/fonts/inter.css";
@@ -65,18 +67,15 @@ export default function Editor({ setChanged }: EditorProps) {
   }, []);
 
   return (
-    <div className="bg-background w-full min-h-full">
+    <div className="bg-background w-full h-full custom-scrollbar overflow-y-auto">
       <div className="p-8 max-w-5xl mx-auto flex flex-col pb-96">
-        
-        {/* Main Editor Area */}
         <div className="flex-1">
           <BlockNoteView
             editor={editor}
-            theme={theme === "dark" ? "dark" : "light"} // Toggle BlockNote theme
+            theme={theme === "dark" ? "dark" : "light"}
             className="bg-transparent"
           />
         </div>
-        
       </div>
     </div>
   );

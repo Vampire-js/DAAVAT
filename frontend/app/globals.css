@@ -47,46 +47,39 @@
 
 @layer base {
   :root {
-    /* Obsidian-like Low Contrast Theme */
+    /* Paper Light Theme (Obsidian-style Light) */
     --radius: 0.5rem;
-    --background: hsl(210 4% 9%);      /* Base: Dark Obsidian Grey */
-    --foreground: hsl(210 4% 85%);     /* Text: Soft White/Grey */
-    
-    --card: hsl(210 4% 12%);           /* Side Panels: Slightly lighter */
-    --card-foreground: hsl(210 4% 85%);
-    
-    --popover: hsl(210 4% 12%);
-    --popover-foreground: hsl(210 4% 85%);
-    
-    --primary: hsl(210 4% 20%);        /* Accents: Muted Graphite */
-    --primary-foreground: hsl(210 4% 95%);
-    
-    --secondary: hsl(210 4% 15%);      /* Middle panels/Hovers */
-    --secondary-foreground: hsl(210 4% 90%);
-    
-    --muted: hsl(210 4% 15%);
-    --muted-foreground: hsl(210 4% 60%);
-    
-    --accent: hsl(210 4% 18%);
-    --accent-foreground: hsl(210 4% 95%);
-    
-    --border: hsl(210 4% 16%);         /* Subtle borders for low contrast */
-    --input: hsl(210 4% 16%);
+    --background: hsl(0 0% 98%);       /* Soft off-white */
+    --foreground: hsl(210 4% 15%);     /* Dark charcoal text */
+    --card: hsl(0 0% 95%);             /* Light grey sidebars */
+    --card-foreground: hsl(210 4% 15%);
+    --border: hsl(0 0% 90%);
+    --primary: hsl(210 4% 20%);
+    --primary-foreground: hsl(0 0% 100%);
+    --muted: hsl(0 0% 92%);
+    --muted-foreground: hsl(210 4% 45%);
+    --accent: hsl(0 0% 90%);
+    --accent-foreground: hsl(210 4% 15%);
     --ring: hsl(210 4% 30%);
-
-    /* Mapping Sidebar to the Obsidian palette */
-    --sidebar: hsl(210 4% 10%);
-    --sidebar-foreground: hsl(210 4% 85%);
-    --sidebar-border: hsl(210 4% 13%);
-    --sidebar-accent: hsl(210 4% 15%);
-    --sidebar-accent-foreground: hsl(210 4% 95%);
+    --sidebar: hsl(0 0% 96%);
+    --input: hsl(0 0% 90%);
   }
 
   .dark {
-    /* Slightly deeper variant for explicit Dark Mode */
-    --background: hsl(210 4% 7%);
-    --card: hsl(210 4% 10%);
-    --border: hsl(210 4% 13%);
+    /* Obsidian Dark Theme (Your existing theme) */
+    --background: hsl(210 4% 10%);
+    --foreground: hsl(210 4% 80%);
+    --card: hsl(210 4% 13%);
+    --card-foreground: hsl(210 4% 80%);
+    --border: hsl(210 4% 15%);
+    --primary: hsl(210 4% 20%);
+    --primary-foreground: hsl(210 4% 95%);
+    --muted: hsl(210 4% 15%);
+    --muted-foreground: hsl(210 4% 60%);
+    --accent: hsl(210 4% 18%);
+    --accent-foreground: hsl(210 4% 95%);
+    --sidebar: hsl(210 4% 11%);
+    --input: hsl(210 4% 15%);
   }
 }
 
@@ -95,8 +88,41 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
   }
+
+  /* Force BlockNote to use our theme variables - Syncs with Toggle */
+  .bn-editor,
+  .bn-root {
+    background-color: var(--background) !important;
+    color: var(--foreground) !important;
+  }
+
+  /* Syncs menus with current theme state */
+  .bn-side-menu, 
+  .bn-slash-menu,
+  .bn-suggestion-menu {
+    background-color: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--foreground) !important;
+  }
+
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+}
+
+/* Custom scrollbar - Dynamic colors */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--background);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
 }
 
 .login-gradient {
@@ -116,5 +142,60 @@
   }
   .rotate-y-180 {
     transform: rotateY(180deg);
+  }
+
+  /* Chert AI Animation */
+  @keyframes vibrate {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(-2px, 2px) scale(1.02); }
+    50% { transform: translate(2px, -2px) scale(0.98); }
+    75% { transform: translate(-2px, -2px) scale(1.01); }
+  }
+  .animate-vibrate {
+    animation: vibrate 0.3s linear infinite;
+  }
+
+  /* Audio Spectrum Visualizer */
+  @keyframes spectrum-bar {
+    0%, 100% { height: 4px; }
+    50% { height: 20px; }
+  }
+  .animate-spectrum-bar {
+    animation: spectrum-bar 0.8s ease-in-out infinite;
+  }
+
+  /* Siri-style Fluid Visualizer Animations */
+  @keyframes siri-rotate {
+    0% { transform: rotate(0deg) scale(1); }
+    33% { transform: rotate(120deg) scale(1.1); }
+    66% { transform: rotate(240deg) scale(0.9); }
+    100% { transform: rotate(360deg) scale(1); }
+  }
+
+  @keyframes siri-pulse {
+    0%, 100% { opacity: 0.5; filter: blur(12px); }
+    50% { opacity: 0.8; filter: blur(18px); }
+  }
+
+  @keyframes siri-shift {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(4px, -4px); }
+    66% { transform: translate(-4px, 4px); }
+  }
+
+  .animate-siri-rotate {
+    animation: siri-rotate 6s linear infinite;
+  }
+
+  .animate-siri-pulse {
+    animation: siri-pulse 4s ease-in-out infinite;
+  }
+  
+  .animate-siri-fluid {
+    animation: siri-rotate 4s linear infinite;
+  }
+  
+  .animate-siri-shift {
+    animation: siri-shift 3s ease-in-out infinite;
   }
 }

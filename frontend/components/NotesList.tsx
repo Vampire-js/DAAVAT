@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Button } from "./ui/button";
 import {
   FileIcon,
@@ -17,6 +17,7 @@ import { apiFetch } from "@/app/lib/api";
 import { useNote } from "@/app/contexts/NotesContext";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUI } from "@/app/contexts/AlertContext";
+import { ThemeToggle } from "./ThemeToggle";
 
 type Doc = {
   _id: string;
@@ -42,9 +43,20 @@ export default function NotesList() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["root"]));
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [tempName, setTempName] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     refreshDocs();
   }, [refreshDocs]);
+
+  useEffect(() => {
+    if (renamingId) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select(); 
+    }
+  }, [renamingId]);
 
   const childrenMap = useMemo(() => {
     const map: Record<string, Doc[]> = {};
@@ -68,32 +80,65 @@ export default function NotesList() {
   };
 
   const addFolder = async () => {
-    const name = prompt("Folder name?");
-    if (!name) return;
+    const defaultName = `New Folder ${docs.filter(d => d.type === 'folder').length + 1}`;
     try {
-      await apiFetch("/fileTree/addFolder", {
+      // Cleaned path for apiFetch
+      const res = await apiFetch("/fileTree/addFolder", {
         method: "POST",
-        body: JSON.stringify({ name, parentId: getParentForNewItem(), order: Date.now() })
+        body: JSON.stringify({ name: defaultName, parentId: getParentForNewItem(), order: Date.now() })
       });
-      refreshDocs(); 
+      const data = await res.json();
+      await refreshDocs();
+      setRenamingId(data._id);
+      setTempName(defaultName);
     } catch (e) { 
-      console.error(e); 
-      showAlert("Error creating folder", "error");
+      console.error(e);
+      showAlert("Error creating folder", "error"); 
     }
   };
 
   const addNote = async () => {
-    const name = prompt("Note name?");
-    if (!name) return;
+    const defaultName = `Untitled Note ${docs.filter(d => d.type === 'note').length + 1}`;
     try {
-      await apiFetch("/fileTree/addNote", {
+      // Cleaned path for apiFetch
+      const res = await apiFetch("/fileTree/addNote", {
         method: "POST",
-        body: JSON.stringify({ name, parentId: getParentForNewItem(), order: Date.now(), content: "" })
+        body: JSON.stringify({ name: defaultName, parentId: getParentForNewItem(), order: Date.now(), content: "" })
       });
-      refreshDocs();
+      const data = await res.json();
+      await refreshDocs();
+      setRenamingId(data._id);
+      setTempName(defaultName);
     } catch (e) { 
-      console.error(e); 
-      showAlert("Error creating note", "error");
+      console.error(e);
+      showAlert("Error creating note", "error"); 
+    }
+  };
+
+  const handleRename = async (id: string) => {
+    if (!tempName.trim()) {
+      setRenamingId(null);
+      return;
+    }
+
+    try {
+      // Cleaned path for apiFetch
+      const res = await apiFetch("/fileTree/renameItem", { 
+        method: "POST",
+        body: JSON.stringify({ id, newName: tempName })
+      });
+
+      if (res.ok) {
+        await refreshDocs(); 
+      } else {
+        console.error("Server returned error status:", res.status);
+        throw new Error();
+      }
+    } catch (e) {
+      showAlert("Rename failed. Reverting...", "error");
+      refreshDocs(); 
+    } finally {
+      setRenamingId(null);
     }
   };
 
@@ -114,8 +159,14 @@ export default function NotesList() {
         {children.map(doc => (
           <li key={doc._id}>
             <div
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setRenamingId(doc._id);
+                setTempName(doc.name);
+              }}
               onClick={(e) => {
                 e.stopPropagation();
+                if (renamingId) return; 
                 if (doc.type === 'folder') {
                   toggleExpand(doc._id);
                   setSelectedId(doc._id);
@@ -123,10 +174,14 @@ export default function NotesList() {
                   setSelectedNoteId(doc._id);
                   setName(doc.name);
                   setSelectedId(doc._id);
+                  // Cleaned path for apiFetch
                   apiFetch("/fileTree/getNoteById", {
                     method: "POST",
                     body: JSON.stringify({ noteID: doc._id })
-                  }).then(res => res.json()).then(data => setContent(data.content));
+                  }).then(res => res.json()).then(data => {
+                    const noteData = Array.isArray(data) ? data[0] : data;
+                    setContent(noteData?.content ?? "");
+                  });
                 }
               }}
               className={`flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer select-none transition-colors
@@ -136,7 +191,19 @@ export default function NotesList() {
                 expanded.has(doc._id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />
               )}
               {doc.type === 'folder' ? <FolderIcon size={16} className="text-primary" /> : <FileIcon size={16} className="text-emerald-500" />}
-              <span className="truncate text-sm">{doc.name}</span>
+              
+              {renamingId === doc._id ? (
+                <input
+                  ref={renameInputRef}
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onBlur={() => handleRename(doc._id)}
+                  onKeyDown={(e) => e.key === "Enter" && handleRename(doc._id)}
+                  className="bg-background text-foreground border border-primary rounded px-1 text-sm w-full outline-none"
+                />
+              ) : (
+                <span className="truncate text-sm">{doc.name}</span>
+              )}
             </div>
             {doc.type === 'folder' && expanded.has(doc._id) && renderChildren(doc._id)}
           </li>
@@ -147,16 +214,18 @@ export default function NotesList() {
 
   return (
     <div className="flex w-full h-screen bg-transparent">
-      {/* Icon Rail - Darker background to frame the content */}
       <div className="w-12 border-r border-border flex flex-col items-center py-4 gap-4 bg-background/50">
          <img src="/Logo.svg" className="w-6" alt="Logo" />
          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground"><NotebookIcon/></Button>
          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground"><GitGraphIcon/></Button>
+         
+         <div className="mt-auto">
+           <ThemeToggle />
+         </div>
       </div>
 
-      {/* Sidebar Content - Lighter grey card surface */}
       <div className="w-[280px] border-r border-border flex flex-col p-4 bg-card">
-        <div className="font-bold text-foreground text-lg mb-6 tracking-tight">DAAVAT.</div>
+        <div className="font-bold text-foreground text-lg mb-6 tracking-tight uppercase tracking-widest">Daavat</div>
         
         <div className="flex gap-2 mb-4">
           <Button variant="outline" className="flex-1 h-8 text-xs bg-background border-border" onClick={addFolder}>
@@ -171,7 +240,6 @@ export default function NotesList() {
           {renderChildren("root")}
         </div>
 
-        {/* User Footer */}
         <div className="pt-4 border-t border-border flex items-center justify-between mt-2">
           <div className="flex items-center gap-2">
              <img className="w-6 h-6 rounded-full" src={`https://ui-avatars.com/api/?name=${user?.name}`} alt="avatar" />

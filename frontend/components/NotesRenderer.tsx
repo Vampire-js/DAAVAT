@@ -11,7 +11,7 @@ import {
   File, 
   Mic,
   BrainCircuit,
-  Layers // Import Layers for the flashcard icon
+  Layers 
 } from "lucide-react";
 import {
   Dialog,
@@ -22,7 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import QuizGenerator from "./QuizGenerator";
-import FlashcardGenerator from "./FlashcardGenerator"; // New component
+import FlashcardGenerator from "./FlashcardGenerator"; 
 import { apiFetch } from "@/app/lib/api";
 import { useEffect, useState, useCallback } from "react";
 import { useUI } from "@/app/contexts/AlertContext";
@@ -211,15 +211,15 @@ export default function NotesRenderer() {
   };
 
   return selectedNoteId ? (
-    <div className="flex flex-col h-full overflow-visible ">
-      <div className="flex border-neutral-800 overflow-x-auto shrink-0 bg-neutral-950">
+    <div className="flex flex-col h-full overflow-visible bg-background">
+      <div className="flex border-b border-border overflow-x-auto shrink-0 bg-card">
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`flex items-center px-3 border-t-1 border-x-1 border-t-neutral-800 border-x-neutral-800 border-b-transparent py-2 gap-2 cursor-pointer transition-all ${
+            className={`flex items-center px-4 border-r border-border py-2.5 gap-2 cursor-pointer transition-all ${
               selectedNoteId === tab.id
-                ? "bg-neutral-950 text-white"
-                : "bg-neutral-900 text-neutral-400 hover:bg-neutral-800"
+                ? "bg-background text-foreground border-t-2 border-t-primary"
+                : "bg-card text-muted-foreground hover:bg-background/50"
             }`}
             onClick={() => {
               if (selectedNoteId === tab.id) return;
@@ -252,7 +252,7 @@ export default function NotesRenderer() {
               }
             }}
           >
-            <span className="truncate max-w-[120px]">
+            <span className="truncate max-w-[120px] text-sm font-medium">
               {!tab.saved ? "*" : ""} {tab.name}
             </span>
 
@@ -261,7 +261,7 @@ export default function NotesRenderer() {
                 e.stopPropagation();
                 closeTab(tab.id);
               }}
-              className="hover:text-red-400 transition"
+              className="hover:text-destructive transition"
             >
               <X size={14} />
             </button>
@@ -269,22 +269,21 @@ export default function NotesRenderer() {
         ))}
       </div>
 
-      <div className="shrink-0 p-3 border-b border-neutral-800 bg-neutral-950 flex flex-col items-start gap-4">
+      <div className="shrink-0 p-3 border-b border-border bg-background flex flex-col items-start gap-4">
         <div className="w-full flex justify-end px-4 gap-2">
           
-          {/* NEW: Flashcard Dialog (Placed before Quiz) */}
           <Dialog>
             <DialogTrigger asChild>
               <Button
                 size="sm"
                 variant="outline"
-                className="bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                className="bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent"
               >
                 <Layers className="mr-2 h-3 w-3 text-emerald-400"/>
                 Flashcards
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-neutral-900 border-neutral-800 text-white p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-[600px] bg-card border-border text-foreground p-0 overflow-hidden">
               <DialogHeader className="sr-only"> 
                 <DialogTitle>AI Flashcards</DialogTitle>
                 <DialogDescription>
@@ -295,19 +294,18 @@ export default function NotesRenderer() {
             </DialogContent>
           </Dialog>
 
-          {/* NEW: Quiz Dialog */}
           <Dialog>
             <DialogTrigger asChild>
               <Button
                 size="sm"
                 variant="outline"
-                className="bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                className="bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent"
               >
                 <BrainCircuit className="mr-2 h-3 w-3 text-indigo-400"/>
                 Quiz Me
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-neutral-900 border-neutral-800 text-white p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-[600px] bg-card border-border text-foreground p-0 overflow-hidden">
               <DialogHeader className="sr-only"> 
                 <DialogTitle>Interactive Quiz</DialogTitle>
                 <DialogDescription>
@@ -325,7 +323,7 @@ export default function NotesRenderer() {
               disabled={isGeneratingMap || !content}
               size="sm"
               variant="outline"
-              className="bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-800"
+              className="bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent"
             >
               {isGeneratingMap ? <Loader2 className="animate-spin mr-2 h-3 w-3"/> : <Sparkles className="mr-2 h-3 w-3 text-yellow-500"/>}
               Generate Mind Map
@@ -334,22 +332,22 @@ export default function NotesRenderer() {
         </div>
 
         {mindMapUrl && (
-          <div className="w-full bg-neutral-900/50 border-b border-neutral-800 p-4 relative animate-in slide-in-from-top-2">
+          <div className="w-full bg-card/50 border-b border-border p-4 relative animate-in slide-in-from-top-2">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-xs font-semibold text-neutral-400 flex items-center gap-2 uppercase tracking-wider">
+              <h3 className="text-xs font-semibold text-muted-foreground flex items-center gap-2 uppercase tracking-wider">
                 <ImageIcon className="h-3 w-3 text-blue-400"/> Generated Visuals
               </h3>
               <div className="flex gap-2">
                 <a
                   href={mindMapUrl}
                   download="mindmap.png"
-                  className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-colors"
+                  className="text-xs bg-primary hover:opacity-90 text-primary-foreground px-3 py-1 rounded-md transition-colors"
                 >
                   Download PNG
                 </a>
                 <button
                   onClick={() => setMindMapUrl(null)}
-                  className="text-neutral-500 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <X size={16}/>
                 </button>
@@ -363,14 +361,14 @@ export default function NotesRenderer() {
       </div>
 
       {references && references.length > 0 && (
-        <div className="flex flex-wrap gap-6 mx-4 my-4 p-4 bg-neutral-900/50 rounded-xl border border-dashed border-neutral-800">
+        <div className="flex flex-wrap gap-6 mx-4 my-4 p-4 bg-card/30 rounded-xl border border-dashed border-border">
           {references.map((src, index) => (
             <SourceIcon key={index} source={src} />
           ))}
         </div>
       )}
 
-      <div className="flex-1 relative" spellCheck={false}>
+      <div className="flex-1 relative bg-background" spellCheck={false}>
         <Editor
           setChanged={() => {
             setTabs((prev) =>
@@ -383,7 +381,7 @@ export default function NotesRenderer() {
       </div>
     </div>
   ) : (
-    <div className="flex items-center justify-center h-full text-neutral-500">
+    <div className="flex items-center justify-center h-full text-muted-foreground bg-background">
       Select a note to start editing
     </div>
   );

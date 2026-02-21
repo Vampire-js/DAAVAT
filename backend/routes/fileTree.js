@@ -1,7 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import { requireAuth } from '../middleware/auth.js';
-import { Document } from '../models/Document.js'; // Your project uses the Document model
+import { Document } from '../models/Document.js'; 
 
 dotenv.config();
 const router = express.Router();
@@ -41,7 +41,6 @@ router.post("/addFolder", async (req, res) => {
 // --- 3. ADD NOTE ---
 router.post("/addNote", async (req, res) => {
   try {
-    // 1. 🔥 Add 'references' to the destructuring here
     const { name, parentId, content, order, references } = req.body; 
     
     const note = await Document.create({
@@ -51,7 +50,6 @@ router.post("/addNote", async (req, res) => {
       order: order || Date.now(),
       type: "note",
       userId: req.user.id,
-      // 2. 🔥 Save the references passed from the body
       references: references || [] 
     });
     
@@ -66,27 +64,24 @@ router.post("/addNote", async (req, res) => {
 router.post("/getNoteById", async (req, res) => {
   try {
     const { noteID } = req.body;
-    // Ensure we fetch the note belonging to the authenticated user
     const note = await Document.findOne({ _id: noteID, userId: req.user.id });
     if (!note) return res.status(404).json({ msg: "Note not found" });
-    
-    // Returning the full note object including the references array
     res.json([note]); 
   } catch (err) {
     res.status(500).json({ msg: "Error fetching note" });
   }
 });
 
-// --- 5. UPDATE NOTE CONTENT (Save Changes with References) ---
+// --- 5. UPDATE NOTE CONTENT ---
 router.post("/updateNote", async (req, res) => {
   try {
-    const { noteID, content, references } = req.body; // Added references here
+    const { noteID, content, references } = req.body; 
     
     const note = await Document.findOneAndUpdate(
       { _id: noteID, userId: req.user.id },
       { 
         content: content,
-        references: references // Save the source cards to the database
+        references: references 
       },
       { new: true }
     );
@@ -99,18 +94,25 @@ router.post("/updateNote", async (req, res) => {
   }
 });
 
-// --- 6. RENAME DOCUMENT ---
-router.post("/rename", async (req, res) => {
+// --- 6. RENAME ITEM (Unified logic for frontend call) ---
+router.post("/renameItem", async (req, res) => {
+  const { id, newName } = req.body; // Frontend sends 'id' and 'newName'
+  
   try {
-    const { id, name } = req.body;
     const doc = await Document.findOneAndUpdate(
-      { _id: id, userId: req.user.id },
-      { name },
+      { _id: id, userId: req.user.id }, // Security: ensure user owns the doc
+      { name: newName },
       { new: true }
     );
-    res.json(doc);
-  } catch (err) {
-    res.status(500).json({ msg: "Error renaming document" });
+
+    if (!doc) {
+      return res.status(404).json({ error: "Item not found or unauthorized" });
+    }
+    
+    res.status(200).json(doc);
+  } catch (error) {
+    console.error("Rename Error:", error);
+    res.status(500).json({ error: "Failed to rename item" });
   }
 });
 
