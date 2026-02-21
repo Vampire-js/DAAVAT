@@ -4,6 +4,7 @@ import "@blocknote/core/fonts/inter.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn"; 
 import "@blocknote/shadcn/style.css";
+import { useTheme } from "next-themes";
 
 type EditorProps = {
   setChanged: (v: boolean) => void;
@@ -13,6 +14,7 @@ export default function Editor({ setChanged }: EditorProps) {
   const { content, setContent, selectedNoteId } = useNote();
   const editor = useCreateBlockNote();
   const [isMounted, setIsMounted] = useState(false);
+  const { theme } = useTheme();
 
   // Load content into editor
   useEffect(() => {
@@ -63,14 +65,14 @@ export default function Editor({ setChanged }: EditorProps) {
   }, []);
 
   return (
-    <div className="bg-neutral-950 w-full min-h-full">
+    <div className="bg-background w-full min-h-full">
       <div className="p-8 max-w-5xl mx-auto flex flex-col pb-96">
         
         {/* Main Editor Area */}
         <div className="flex-1">
           <BlockNoteView
             editor={editor}
-            theme="dark"
+            theme={theme === "dark" ? "dark" : "light"} // Toggle BlockNote theme
             className="bg-transparent"
           />
         </div>
