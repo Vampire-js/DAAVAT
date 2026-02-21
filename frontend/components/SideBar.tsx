@@ -10,7 +10,7 @@ interface SidebarProps {
 
 export default function SideBar({ selected, setSelected }: SidebarProps) {
     return (
-        <div className="w-12 border-r border-border flex flex-col items-center py-4 gap-4 bg-background/50">
+        <div className="w-18 border-r border-border flex flex-col items-center py-4 gap-4 bg-background/50">
             <img src="/Logo.svg" className="w-6" alt="Logo" />
 
             <Button

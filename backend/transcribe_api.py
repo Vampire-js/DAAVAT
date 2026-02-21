@@ -20,6 +20,7 @@ import time
 import random
 import asyncio
 from typing import List, Optional
+from fastapi.responses import StreamingResponse
 
 os.environ["PATH"] += os.pathsep + "/opt/homebrew/bin"
 
@@ -850,81 +851,98 @@ async def generate_flashcards(item: FlashcardRequest):
         raise HTTPException(status_code=500, detail="Failed to generate flashcards.")
 
 # --- The Unified Endpoint ---
+# --- The Unified Endpoint (Streaming Version) ---
 
 @app.post("/generate_master_note")
 async def generate_master_note(
     links: str = Form(default="[]"), 
     files: List[UploadFile] = File(None),
-    model_size: str = Form("medium") # New parameter
+    model_size: str = Form("medium")
 ):
-    import json
-    try:
-        link_list = json.loads(links)
-    except:
-        link_list = []
+    async def generate():
+        import json
+        try:
+            link_list = json.loads(links)
+        except:
+            link_list = []
+            
+        tasks = []
         
-    tasks = []
-    
-   # 1. Dispatch PDF and Audio tasks
-    if files:
-        for file in files:
-            filename = file.filename.lower()
-            if filename.endswith(".pdf"):
-                tasks.append(process_pdf_source(file))
-            elif filename.endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".webm")):
-                tasks.append(process_audio_source(file, model_size)) # Added model_size
-    
-    # 2. Dispatch YouTube tasks
-    for link in link_list:
-        if "youtube.com" in link or "youtu.be" in link:
-            tasks.append(process_youtube_source(link, model_size)) # Added model_size
+        # 1. Initial Progress: Dispatching
+        yield json.dumps({"progress": 10}) + "\n"
+        
+        if files:
+            for file in files:
+                filename = file.filename.lower()
+                if filename.endswith(".pdf"):
+                    tasks.append(process_pdf_source(file))
+                elif filename.endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".webm")):
+                    tasks.append(process_audio_source(file, model_size))
+        
+        for link in link_list:
+            if "youtube.com" in link or "youtu.be" in link:
+                tasks.append(process_youtube_source(link, model_size))
 
-    if not tasks:
-        raise HTTPException(status_code=400, detail="No valid sources provided.")
+        if not tasks:
+            yield json.dumps({"error": "No valid sources provided."}) + "\n"
+            return
 
-    # 3. Parallel Execution (Wait for all transcriptions/extractions)
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # 4. Filter out failures and aggregate
-    sources_data = []
-    all_combined_text = ""
-    
-    for res in results:
-        if isinstance(res, Exception):
-            print(f"Source processing failed: {res}")
-            continue
-        sources_data.append(res)
-        all_combined_text += f"\n\n--- Source: {res['title']} ---\n{res['full_text']}"
+        # 2. Stage Progress: Processing Sources
+        yield json.dumps({"progress": 30}) + "\n"
 
-    if not sources_data:
-        raise HTTPException(status_code=400, detail="No valid sources were processed.")
+        # Parallel Execution
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        sources_data = []
+        all_combined_text = ""
+        
+        for res in results:
+            if isinstance(res, Exception):
+                print(f"Source processing failed: {res}")
+                continue
+            sources_data.append(res)
+            all_combined_text += f"\n\n--- Source: {res['title']} ---\n{res['full_text']}"
 
-    # --- OPTIMIZATION: Check for Single Source ---
-    if len(sources_data) == 1:
-        print("🚀 Single source detected. Skipping Master Synthesis.")
-        single_source = sources_data[0]
-        return {
-            "meta_summary": single_source['summary'], # Use the individual summary as meta_summary
+        if not sources_data:
+            yield json.dumps({"error": "No valid sources were processed."}) + "\n"
+            return
+
+        # 3. Intermediate Progress: Sources Finished
+        yield json.dumps({"progress": 75}) + "\n"
+
+        # Check for Single Source
+        if len(sources_data) == 1:
+            final_payload = {
+                "meta_summary": sources_data[0]['summary'],
+                "sources": sources_data
+            }
+            yield json.dumps({"progress": 100}) + "\n"
+            yield json.dumps({"final_result": final_payload}) + "\n"
+            return
+
+        # Multiple sources: Synthesize
+        if all_combined_text:
+            rag_solver.process_lecture_data(all_combined_text)
+
+        yield json.dumps({"progress": 85}) + "\n"
+        
+        synthesis_prompt = [
+            {
+                "role": "system", 
+                "content": "You are a Master Academic Synthesizer. Create a meta-summary and extract key concepts connecting all provided sources. Use Markdown."
+            },
+            {"role": "user", "content": f"Synthesize these contents:\n{all_combined_text[:10000]}"}
+        ]
+        
+        meta_summary = await generate_llm(synthesis_prompt, max_new_tokens=1024)
+
+        final_payload = {
+            "meta_summary": meta_summary,
             "sources": sources_data
         }
 
-    # 5. Index into FAISS for RAG (Critical for the Doubt Solver)
-    if all_combined_text:
-        rag_solver.process_lecture_data(all_combined_text)
+        # 4. Final Progress: Complete
+        yield json.dumps({"progress": 100}) + "\n"
+        yield json.dumps({"final_result": final_payload}) + "\n"
 
-    # 6. LLM Synthesis (Only runs for 2+ sources)
-    print(f"🧠 Multiple sources ({len(sources_data)}) detected. Synthesizing...")
-    synthesis_prompt = [
-        {
-            "role": "system", 
-            "content": "You are a Master Academic Synthesizer. Create a meta-summary and extract key concepts connecting all provided sources. Use Markdown."
-        },
-        {"role": "user", "content": f"Synthesize these contents:\n{all_combined_text[:10000]}"}
-    ]
-    
-    meta_summary = await generate_llm(synthesis_prompt, max_new_tokens=1024)
-
-    return {
-        "meta_summary": meta_summary,
-        "sources": sources_data
-    }
+    return StreamingResponse(generate(), media_type="application/x-ndjson")

@@ -10,6 +10,8 @@ import {
 } from "react";
 import { apiFetch } from "@/app/lib/api";
 
+/* ================= TYPES ================= */
+
 export type Reference = {
   id: string;
   source: "YouTube" | "PDF" | "Audio";
@@ -46,7 +48,7 @@ type NoteContextType = {
     content: string;
     parentId?: string | null;
     references?: Omit<Reference, "id">[];
-  }) => Promise<void>;
+  }) => Promise<Doc>;
 
   addDocument: (doc: {
     title: string;
@@ -54,12 +56,19 @@ type NoteContextType = {
     type: "note" | "board";
     parentId?: string | null;
     references?: Omit<Reference, "id">[];
-  }) => Promise<void>;
+  }) => Promise<Doc>;
+
+  updateNote: (noteID: string, updates: Partial<Doc>) => Promise<void>;
 
   references: Reference[];
   setReferences: (refs: Reference[]) => void;
   addReference: (ref: Omit<Reference, "id">) => Promise<void>;
+
+  globalProgress: number | null;
+  setGlobalProgress: (val: number | null) => void;
 };
+
+/* ================= CONTEXT ================= */
 
 const NoteContext = createContext<NoteContextType | null>(null);
 
@@ -69,29 +78,33 @@ export function NoteProvider({ children }: { children: ReactNode }) {
   const [content, setContent] = useState<string | undefined>(undefined);
   const [name, setName] = useState<string | null>(null);
   const [references, setReferences] = useState<Reference[]>([]);
+  const [globalProgress, setGlobalProgress] = useState<number | null>(null);
 
-  // 🔥 Sync selected document state
+  /* ================= SYNC SELECTED DOC ================= */
+
   useEffect(() => {
-    if (selectedDocId) {
-      const activeDoc = docs.find((d) => d._id === selectedDocId);
-      if (activeDoc) {
-        setContent(activeDoc.content || "");
-        setName(activeDoc.name);
-
-        if (activeDoc.type === "note") {
-          setReferences(activeDoc.references || []);
-        } else {
-          setReferences([]);
-        }
-      }
-    } else {
-      setReferences([]);
+    if (!selectedDocId) {
       setContent("");
       setName("");
+      setReferences([]);
+      return;
+    }
+
+    const activeDoc = docs.find((d) => d._id === selectedDocId);
+    if (!activeDoc) return;
+
+    setContent(activeDoc.content || "");
+    setName(activeDoc.name);
+
+    if (activeDoc.type === "note") {
+      setReferences(activeDoc.references || []);
+    } else {
+      setReferences([]);
     }
   }, [selectedDocId, docs]);
 
-  // 🔥 Fetch documents
+  /* ================= FETCH DOCS ================= */
+
   const refreshDocs = useCallback(async () => {
     try {
       const res = await apiFetch("/fileTree/documents");
@@ -107,14 +120,15 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     refreshDocs();
   }, [refreshDocs]);
 
-  // 🔥 Unified Add Document (note + board)
+  /* ================= ADD DOCUMENT ================= */
+
   const addDocument = async (newDoc: {
     title: string;
     content: string;
     type: "note" | "board";
     parentId?: string | null;
     references?: Omit<Reference, "id">[];
-  }) => {
+  }): Promise<Doc> => {
     try {
       const endpoint =
         newDoc.type === "note"
@@ -144,30 +158,63 @@ export function NoteProvider({ children }: { children: ReactNode }) {
 
       const savedDoc = await response.json();
 
-      // Optimistic update
       setDocs((prev) => [...prev, savedDoc]);
       setSelectedDocId(savedDoc._id);
 
-      refreshDocs();
+      await refreshDocs();
+      return savedDoc;
     } catch (error) {
       console.error("Error adding document:", error);
+      throw error;
     }
   };
 
-  // 🔥 Backwards-compatible wrapper
+  /* ================= ADD NOTE (wrapper) ================= */
+
   const addNote = async (note: {
     title: string;
     content: string;
     parentId?: string | null;
     references?: Omit<Reference, "id">[];
-  }) => {
+  }): Promise<Doc> => {
     return addDocument({
       ...note,
       type: "note",
     });
   };
 
-  // 🔥 Add Reference (only works for notes)
+  /* ================= UPDATE NOTE ================= */
+
+  const updateNote = useCallback(
+    async (noteID: string, updates: Partial<Doc>) => {
+      try {
+        const response = await apiFetch("/fileTree/updateNote", {
+          method: "POST",
+          body: JSON.stringify({
+            noteID,
+            ...updates,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to update note");
+
+        setDocs((prev) =>
+          prev.map((doc) =>
+            doc._id === noteID ? { ...doc, ...updates } : doc
+          )
+        );
+
+        await refreshDocs();
+      } catch (err) {
+        console.error("Error updating note:", err);
+        throw err;
+      }
+    },
+    [refreshDocs]
+  );
+
+  /* ================= ADD REFERENCE ================= */
+
   const addReference = useCallback(
     async (ref: Omit<Reference, "id">) => {
       if (!selectedDocId) return;
@@ -185,7 +232,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
           method: "POST",
           body: JSON.stringify({
             noteID: selectedDocId,
-            content: content,
+            content,
             references: updatedReferences,
           }),
         });
@@ -193,7 +240,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
         if (!response.ok)
           throw new Error("Failed to sync references to server");
 
-        refreshDocs();
+        await refreshDocs();
       } catch (err) {
         console.error("Error saving reference:", err);
       }
@@ -201,7 +248,11 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     [selectedDocId, references, content, docs, refreshDocs]
   );
 
+  /* ================= DERIVED ================= */
+
   const folders = docs.filter((d) => d.type === "folder");
+
+  /* ================= PROVIDER ================= */
 
   return (
     <NoteContext.Provider
@@ -217,15 +268,20 @@ export function NoteProvider({ children }: { children: ReactNode }) {
         setName,
         addNote,
         addDocument,
+        updateNote,
         references,
         setReferences,
         addReference,
+        globalProgress,
+        setGlobalProgress,
       }}
     >
       {children}
     </NoteContext.Provider>
   );
 }
+
+/* ================= HOOK ================= */
 
 export function useNote() {
   const ctx = useContext(NoteContext);

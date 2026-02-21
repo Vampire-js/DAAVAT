@@ -40,7 +40,7 @@ type Doc = {
 
 export default function NotesList() {
   const { user, logout } = useAuth();
-  const { docs, refreshDocs, setSelectedDocId, setContent } = useNote();
+  const { docs, refreshDocs, setSelectedDocId , setContent} = useNote();
   const { showAlert } = useUI();
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["root"]));
@@ -51,11 +51,11 @@ export default function NotesList() {
   const [docType, setDocType] = useState<"note" | "board" | null>(null);
 
   // =============================
-  // LOAD DOCUMENTS
+  // LOAD DOCUMENTS (ONCE)
   // =============================
   useEffect(() => {
     refreshDocs();
-  }, [refreshDocs]);
+  }, []); // 🔥 DO NOT depend on refreshDocs
 
   // =============================
   // BUILD TREE MAP
@@ -112,7 +112,7 @@ export default function NotesList() {
         }),
       });
 
-      refreshDocs();
+      await refreshDocs();
     } catch {
       showAlert("Error creating folder", "error");
     }
@@ -140,7 +140,8 @@ export default function NotesList() {
         }),
       });
 
-      refreshDocs();
+      await refreshDocs();
+
       setDialogOpen(false);
       setDocName("");
       setDocType(null);
@@ -150,38 +151,41 @@ export default function NotesList() {
   };
 
   // =============================
-  // LOAD DOCUMENT CONTENT
+  // OPEN DOCUMENT
   // =============================
-  const openDocument = async (doc: Doc) => {
-    setSelectedDocId(doc._id);
-    setSelectedId(doc._id);
+const openDocument = async (doc: Doc) => {
+  setSelectedId(doc._id);
+  setSelectedDocId(doc._id);
 
-    try {
-      if (doc.type === "note") {
-        const res = await apiFetch("/fileTree/getNoteById", {
-          method: "POST",
-          body: JSON.stringify({ noteID: doc._id }),
-        });
+  try {
+    if (doc.type === "note") {
+      const res = await apiFetch("/fileTree/getNoteById", {
+        method: "POST",
+        body: JSON.stringify({ noteID: doc._id }),
+      });
 
-        const data = await res.json();
-        const note = Array.isArray(data) ? data[0] : data;
-        setContent(note?.content ?? "");
-      }
+      const data = await res.json();
+      const note = Array.isArray(data) ? data[0] : data;
 
-      if (doc.type === "board") {
-        const res = await apiFetch("/fileTree/getBoardById", {
-          method: "POST",
-          body: JSON.stringify({ boardID: doc._id }),
-        });
-
-        const data = await res.json();
-        const board = Array.isArray(data) ? data[0] : data;
-        setContent(board?.content ?? "");
-      }
-    } catch {
-      showAlert("Error loading document", "error");
+      // 🔥 DIRECTLY update content state in context
+      setContent(note?.content ?? "");
     }
-  };
+
+    if (doc.type === "board") {
+      const res = await apiFetch("/fileTree/getBoardById", {
+        method: "POST",
+        body: JSON.stringify({ boardID: doc._id }),
+      });
+
+      const data = await res.json();
+      const board = Array.isArray(data) ? data[0] : data;
+
+      setContent(board?.content ?? "");
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   // =============================
   // RENDER TREE
@@ -300,9 +304,7 @@ export default function NotesList() {
         </div>
       </div>
 
-      {/* =============================
-          DIALOG
-      ============================== */}
+      {/* CREATE DIALOG */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
