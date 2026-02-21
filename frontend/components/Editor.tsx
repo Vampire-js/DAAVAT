@@ -33,11 +33,16 @@ function BlockNoteInternal({
   // Track current ID in a ref to block async saves to the wrong document
   const idRef = useRef(docId);
 
+  // Update ref if docId changes (though key prop should handle this via remounting)
+  useEffect(() => {
+    idRef.current = docId;
+  }, [docId]);
+
   useEffect(() => {
     if (!editor) return;
 
     const init = async () => {
-      setIsMounted(false);
+      setIsMounted(false); // Lock saving immediately to prevent bleeding old state
       try {
         // 1. Force clear the internal document to prevent flickering
         editor.replaceBlocks(editor.document, [{ type: "paragraph", content: [] }]);
@@ -55,11 +60,13 @@ function BlockNoteInternal({
           }
         }
       } finally {
-        setIsMounted(true);
+        // Small delay to ensure the editor has finished its internal re-render
+        // before we allow onChange to trigger saves.
+        setTimeout(() => setIsMounted(true), 10);
       }
     };
     init();
-  }, [editor]); // Runs ONLY once when this internal component mounts
+  }, [editor, initialContent]);
 
   // Sync changes back to Context
   useEffect(() => {
@@ -100,19 +107,22 @@ export default function Editor({ setChanged }: EditorProps) {
     setChanged(true);
   }, [content, setContent, setChanged]);
 
-  if (!activeDoc || activeDoc.type !== "note") return null;
+  /**
+   * CRITICAL CHECK: 
+   * If content is 'undefined', the NotesContext is currently switching between documents.
+   * Returning null here forces the old Editor instance to unmount before the new content 
+   * is available, preventing the "stale content" bug.
+   */
+  if (!activeDoc || activeDoc.type !== "note" || content === undefined) return null;
 
   return (
     <div className="bg-background w-full h-full overflow-y-auto custom-scrollbar">
       <div className="p-8 max-w-5xl mx-auto pb-96">
-        {/* CRITICAL FIX: Adding key={selectedDocId} forces React to 
-          completely destroy the previous editor instance immediately. 
-          This prevents the "wrong content displayed" bug.
-        */}
+        {/* The key={selectedDocId} forces a hard remount on every document switch */}
         <BlockNoteInternal 
           key={selectedDocId} 
           docId={selectedDocId}
-          initialContent={content || ""} 
+          initialContent={content} 
           onSave={handleSave}
         />
       </div>

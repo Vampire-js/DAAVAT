@@ -127,6 +127,9 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // IMMEDIATELY clear content to prevent bleeding
+    setContent(undefined); 
+
     const activeDoc = docs.find((d) => d._id === selectedDocId);
     if (!activeDoc) return;
 
@@ -140,9 +143,13 @@ export function NoteProvider({ children }: { children: ReactNode }) {
       setReferences([]);
     }
 
-    // Unlock updates after a small delay to ensure Editor has processed the new state
-    const timer = setTimeout(() => setIsTransitioning(false), 50);
-    return () => clearTimeout(timer);
+    // Unlock updates after a longer buffer to ensure Editor has processed the new state
+    const timer = setTimeout(() => setIsTransitioning(false), 100);
+    
+    return () => {
+      clearTimeout(timer);
+      setIsTransitioning(true); // Re-lock on unmount or doc switch
+    };
   }, [selectedDocId, docs]);
 
   // Wrap setContent to ignore updates during transition
@@ -305,7 +312,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
         addReference,
         globalProgress,
         setGlobalProgress,
-        isTransitioning, //
+        isTransitioning, 
       }}
     >
       {children}

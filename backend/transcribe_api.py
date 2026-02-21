@@ -21,8 +21,18 @@ import random
 import asyncio
 from typing import List, Optional
 from fastapi.responses import StreamingResponse
+import sys
+from typing import List
+import io
+from itertools import combinations
+from numpy.linalg import norm
+import docx
+from pptx import Presentation
 
-os.environ["PATH"] += os.pathsep + "/opt/homebrew/bin"
+
+homebrew_path = "/opt/homebrew/bin"
+if homebrew_path not in os.environ["PATH"]:
+    os.environ["PATH"] += os.pathsep + "/opt/homebrew/bin"
 
 # --- CRITICAL FIX: Prevent Deadlocks on Mac/Linux ---
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -109,8 +119,6 @@ llm_model = AutoModelForCausalLM.from_pretrained(
 llm_model.to(DEVICE)
 llm_model.eval()
 
-# C. Legacy Summarizer (Backup)
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn", device=-1)
 
 print("✅ All Systems Ready!")
 
@@ -256,7 +264,7 @@ async def generate_diagram(text_content, file_id): # Made Async
         
         try:
             subprocess.run(["dot", "-Tpng", dot_path, "-o", png_path], check=True, stderr=subprocess.PIPE)
-            image_url = f"http://127.0.0.1:8000/tmp/{file_id}.png"
+            image_url = f"http://127.0.0.1:8000/{png_path}"
         except subprocess.CalledProcessError as e:
             print(f"   ❌ Graphviz Syntax Error: {e.stderr.decode()}")
         except Exception as e:
@@ -269,19 +277,34 @@ async def generate_diagram(text_content, file_id): # Made Async
 # --------------------
 def _transcribe_sync(audio_path, model_size):
     """Blocking transcription call"""
-    model = get_whisper_model(model_size)
-    
-    # ADDED: vad_filter=True and condition_on_previous_text=False
-    # This forces Whisper to process speech chunks accurately without skipping
-    segments, info = model.transcribe(
-        audio_path, 
-        beam_size=5, 
-        language="en",
-        vad_filter=True,
-        vad_parameters=dict(min_silence_duration_ms=500),
-        condition_on_previous_text=False # Prevents hallucination loops/skipping
-    )
-    return " ".join([s.text for s in segments]).strip()
+    try:
+        print(f"📦 Initializing Whisper ({model_size})...")
+        model = get_whisper_model(model_size)
+        
+        # Log audio info to ensure the file is readable
+        print(f"🎵 Transcribing: {audio_path}")
+        
+        segments, info = model.transcribe(
+            audio_path, 
+            beam_size=5, 
+            language="en",
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+            condition_on_previous_text=False 
+        )
+        
+        full_text = " ".join([s.text for s in segments]).strip()
+        
+        if not full_text:
+            print("⚠️ WARNING: Transcription returned empty text!")
+        else:
+            print(f"✅ Success: Transcribed {len(full_text)} characters.")
+            
+        return full_text
+        
+    except Exception as e:
+        print(f"❌ ERROR in _transcribe_sync: {str(e)}")
+        return "" # Returns empty so the backend knows this source failed
 
 async def process_full_pipeline(audio_path, file_id, model_size="medium"):
     # 1. Transcribe (Threaded)
@@ -665,25 +688,41 @@ async def pdf_summarize(file: UploadFile):
 async def transcribe_and_summarize(file: UploadFile, model_size: str = Form("medium")):
     os.makedirs("./tmp", exist_ok=True)
     path = f"./tmp/{file.filename}"
-    with open(path, "wb") as f: shutil.copyfileobj(file.file, f)
+    with open(path, "wb") as f: 
+        shutil.copyfileobj(file.file, f)
     
     try:
         print(f"🎤 Transcribing Upload with {model_size} model...")
         
-        # OPTIMIZATION: Threaded transcription
+        # 1. Threaded transcription using your existing helper
         transcript = await run_in_threadpool(_transcribe_sync, path, model_size)
         
+        # 2. Index for RAG solver
         rag_solver.process_lecture_data(transcript)
         
-        chunks = [transcript[i:i+3000] for i in range(0, len(transcript), 3000)]
-        summary = []
-        for ch in chunks:
-            if len(ch.split()) > 50:
-                s = summarizer(ch, max_length=150, min_length=30, do_sample=False)
-                summary.append(s[0]['summary_text'])
-        return {"transcript": transcript, "summary": summary}
+        # 3. Summarize using the 1.5B LLM
+        # Split into chunks of 4000 characters to stay within context limits
+        chunks = [transcript[i:i+4000] for i in range(0, len(transcript), 4000)]
+        summary_parts = []
+        
+        for i, ch in enumerate(chunks):
+            if len(ch.split()) > 20:
+                print(f"   ⏳ Summarizing chunk {i+1}/{len(chunks)}...")
+                prompt = [
+                    {"role": "system", "content": "Summarize this segment of the lecture into clear, academic bullet points."},
+                    {"role": "user", "content": ch}
+                ]
+                # Use your existing generate_llm helper
+                s = await generate_llm(prompt, max_new_tokens=300)
+                summary_parts.append(s)
+        
+        return {
+            "transcript": transcript, 
+            "summary": summary_parts
+        }
     finally:
-        if os.path.exists(path): os.remove(path)
+        if os.path.exists(path): 
+            os.remove(path)
 
 # --- Live Transcribe (Optimized & Threaded) ---
 @app.websocket("/ws/live_transcribe")
@@ -852,32 +891,44 @@ async def generate_flashcards(item: FlashcardRequest):
 
 # --- The Unified Endpoint ---
 # --- The Unified Endpoint (Streaming Version) ---
-
 @app.post("/generate_master_note")
 async def generate_master_note(
     links: str = Form(default="[]"), 
     files: List[UploadFile] = File(None),
     model_size: str = Form("medium")
 ):
+    # 1. READ AND SAVE FILES IMMEDIATELY (Outside the generator)
+    # This prevents the "I/O operation on closed file" error
+    temp_dir = os.path.join(os.getcwd(), "temp_uploads")
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    saved_file_paths = []
+    if files:
+        for file in files:
+            file_path = os.path.join(temp_dir, file.filename)
+            content = await file.read()
+            with open(file_path, "wb") as f:
+                f.write(content)
+            saved_file_paths.append((file_path, file.filename.lower()))
+
+    # 2. Start the generator for StreamingResponse
     async def generate():
         import json
+        import asyncio
         try:
             link_list = json.loads(links)
         except:
             link_list = []
             
         tasks = []
-        
-        # 1. Initial Progress: Dispatching
         yield json.dumps({"progress": 10}) + "\n"
         
-        if files:
-            for file in files:
-                filename = file.filename.lower()
-                if filename.endswith(".pdf"):
-                    tasks.append(process_pdf_source(file))
-                elif filename.endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".webm")):
-                    tasks.append(process_audio_source(file, model_size))
+        # 3. Queue up the coroutines (DO NOT use await here)
+        for path, filename in saved_file_paths:
+            if filename.endswith(".pdf"):
+                tasks.append(process_pdf_source(path))
+            elif filename.endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".webm")):
+                tasks.append(process_audio_source(path, model_size))
         
         for link in link_list:
             if "youtube.com" in link or "youtu.be" in link:
@@ -887,10 +938,10 @@ async def generate_master_note(
             yield json.dumps({"error": "No valid sources provided."}) + "\n"
             return
 
-        # 2. Stage Progress: Processing Sources
         yield json.dumps({"progress": 30}) + "\n"
 
-        # Parallel Execution
+        # 🚀 4. THE CRITICAL LINE: Execute all queued tasks in parallel
+        # This resolves the "coroutine was never awaited" warning
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         sources_data = []
@@ -898,51 +949,148 @@ async def generate_master_note(
         
         for res in results:
             if isinstance(res, Exception):
-                print(f"Source processing failed: {res}")
+                print(f"❌ Source processing failed: {res}")
                 continue
             sources_data.append(res)
-            all_combined_text += f"\n\n--- Source: {res['title']} ---\n{res['full_text']}"
+            all_combined_text += f"\n\n--- Source: {res.get('title', 'Unknown')} ---\n{res.get('full_text', '')}"
 
         if not sources_data:
             yield json.dumps({"error": "No valid sources were processed."}) + "\n"
+            # Cleanup even on failure
+            for path, _ in saved_file_paths:
+                if os.path.exists(path): os.remove(path)
             return
 
-        # 3. Intermediate Progress: Sources Finished
         yield json.dumps({"progress": 75}) + "\n"
 
-        # Check for Single Source
+        # 5. Logic for Single or Multiple sources
         if len(sources_data) == 1:
             final_payload = {
-                "meta_summary": sources_data[0]['summary'],
+                "meta_summary": sources_data[0].get('summary', 'No summary generated.'),
                 "sources": sources_data
             }
-            yield json.dumps({"progress": 100}) + "\n"
-            yield json.dumps({"final_result": final_payload}) + "\n"
-            return
+        else:
+            if all_combined_text:
+                rag_solver.process_lecture_data(all_combined_text)
 
-        # Multiple sources: Synthesize
-        if all_combined_text:
-            rag_solver.process_lecture_data(all_combined_text)
+            yield json.dumps({"progress": 85}) + "\n"
+            
+            synthesis_prompt = [
+                {"role": "system", "content": "You are a Master Academic Synthesizer. Create a meta-summary and extract key concepts connecting all provided sources. Use Markdown."},
+                {"role": "user", "content": f"Synthesize these contents:\n{all_combined_text[:10000]}"}
+            ]
+            
+            meta_summary = await generate_llm(synthesis_prompt, max_new_tokens=1024)
+            final_payload = {
+                "meta_summary": meta_summary,
+                "sources": sources_data
+            }
 
-        yield json.dumps({"progress": 85}) + "\n"
-        
-        synthesis_prompt = [
-            {
-                "role": "system", 
-                "content": "You are a Master Academic Synthesizer. Create a meta-summary and extract key concepts connecting all provided sources. Use Markdown."
-            },
-            {"role": "user", "content": f"Synthesize these contents:\n{all_combined_text[:10000]}"}
-        ]
-        
-        meta_summary = await generate_llm(synthesis_prompt, max_new_tokens=1024)
+        # 6. Cleanup temp files before finishing
+        for path, _ in saved_file_paths:
+            if os.path.exists(path):
+                os.remove(path)
 
-        final_payload = {
-            "meta_summary": meta_summary,
-            "sources": sources_data
-        }
-
-        # 4. Final Progress: Complete
         yield json.dumps({"progress": 100}) + "\n"
         yield json.dumps({"final_result": final_payload}) + "\n"
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+# ----------- Text Extraction Helpers -----------
+def extract_pdf_bytes(file_bytes):
+    text = ""
+    with fitz.open(stream=file_bytes, filetype="pdf") as doc:
+        for page in doc:
+            text += page.get_text()
+    return text
+
+def extract_docx_bytes(file_bytes):
+    file_stream = io.BytesIO(file_bytes)
+    document = docx.Document(file_stream)
+    return "\n".join([para.text for para in document.paragraphs])
+
+def extract_pptx_bytes(file_bytes):
+    file_stream = io.BytesIO(file_bytes)
+    prs = Presentation(file_stream)
+    text = []
+    for slide in prs.slides:
+        for shape in slide.shapes:
+            if hasattr(shape, "text"):
+                text.append(shape.text)
+    return "\n".join(text)
+
+def extract_md_txt_bytes(file_bytes):
+    return file_bytes.decode("utf-8", errors="ignore")
+
+def extract_text_dispatch(filename, file_bytes):
+    name = filename.lower()
+    if name.endswith(".pdf"):
+        return extract_pdf_bytes(file_bytes)
+    elif name.endswith(".docx"):
+        return extract_docx_bytes(file_bytes)
+    elif name.endswith(".pptx"):
+        return extract_pptx_bytes(file_bytes)
+    elif name.endswith(".md") or name.endswith(".txt"):
+        return extract_md_txt_bytes(file_bytes)
+    else:
+        return ""
+
+# ----------- Endpoint: Build Semantic Edges -----------
+@app.post("/documents/edges")
+async def build_document_edges(
+    files: List[UploadFile],
+    threshold: float = Form(0.30)
+):
+    if len(files) < 2:
+        raise HTTPException(status_code=400, detail="Upload at least 2 files.")
+
+    docs = {}
+    for file in files:
+        file_bytes = await file.read()
+        text = extract_text_dispatch(file.filename, file_bytes)
+        # Use filename without extension as the ID
+        doc_id = file.filename.rsplit(".", 1)[0]
+        docs[doc_id] = text.strip()
+
+    # Remove empty docs
+    docs = {k: v for k, v in docs.items() if v}
+    if len(docs) < 2:
+        raise HTTPException(status_code=400, detail="Not enough valid text extracted.")
+
+    doc_ids = list(docs.keys())
+    texts = list(docs.values())
+
+    # Use same embedding model already loaded in RAG
+    vectors = rag_solver.embeddings.embed_documents(texts)
+    vectors = np.array(vectors)
+
+    def cosine_similarity(v1, v2):
+        denominator = norm(v1) * norm(v2)
+        if denominator == 0:
+            return 0.0
+        return float(np.dot(v1, v2) / denominator)
+
+    # 1. Calculate all potential pairs
+    all_pairs = []
+    for (i, id1), (j, id2) in combinations(enumerate(doc_ids), 2):
+        sim = cosine_similarity(vectors[i], vectors[j])
+        if sim >= threshold:
+            all_pairs.append({
+                "source": id1,
+                "target": id2,
+                "similarity": round(sim, 4)
+            })
+
+    # 2. Sort by similarity descending to pick the best connections
+    all_pairs.sort(key=lambda x: x['similarity'], reverse=True)
+
+    # 3. Limit total edges to keep the graph "sparse" and readable
+    # We allow an average of 2 strongest links per document
+    max_total_edges = len(doc_ids) * 2
+    edges = all_pairs[:max_total_edges]
+
+    return {
+        "num_documents": len(doc_ids),
+        "threshold": threshold,
+        "edges": edges
+    }

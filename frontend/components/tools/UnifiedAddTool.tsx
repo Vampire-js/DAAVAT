@@ -70,20 +70,24 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
   };
 
   const addFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      const newItems: StagedItem[] = files.map((file) => {
-        const isAudio = file.type.startsWith("audio/");
-        return {
-          id: Math.random().toString(36).substring(2, 9),
-          type: isAudio ? "audio" : "document",
-          name: file.name,
-          value: file,
-        };
-      });
-      setStagedItems((prev) => [...prev, ...newItems]);
-    }
-  };
+  if (e.target.files) {
+    const files = Array.from(e.target.files);
+    const newItems: StagedItem[] = files.map((file) => {
+      // Check MIME type OR file extension for audio
+      const audioExtensions = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.webm'];
+      const isAudio = file.type.startsWith("audio/") || 
+                      audioExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+      
+      return {
+        id: Math.random().toString(36).substring(2, 9),
+        type: isAudio ? "audio" : "document",
+        name: file.name,
+        value: file, // Keep the actual File object
+      };
+    });
+    setStagedItems((prev) => [...prev, ...newItems]);
+  }
+};
 
   const removeItem = (id: string) => {
     setStagedItems((prev) => prev.filter((item) => item.id !== id));
@@ -100,7 +104,7 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
         : `Master Note: ${new Date().toLocaleDateString()}`;
 
     // 1. Create placeholder and close modal
-    let tempNote;
+    let tempNote: any;
     try {
       tempNote = await addNote({
         title: finalTitle,
@@ -109,14 +113,13 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
         references: []
       });
 
-      // CRITICAL CHECK: Ensure addNote actually returned an object with an _id
       if (!tempNote || !tempNote._id) {
         throw new Error("Failed to create initial placeholder note.");
       }
     } catch (err) {
       console.error("Initial note creation failed:", err);
       showAlert("Could not initialize note. Please try again.", "error");
-      return; // Stop execution if we don't have a note to update
+      return;
     }
 
     if (onClose) onClose();
@@ -124,7 +127,6 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
 
     try {
       const formData = new FormData();
-      
       const links = stagedItems
         .filter((item) => item.type === "video")
         .map((item) => item.value as string);
@@ -133,10 +135,13 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
       formData.append("model_size", modelSize); 
 
       stagedItems
-        .filter((item) => item.type === "document" || item.type === "audio")
-        .forEach((item) => {
-          formData.append("files", item.value as File);
-        });
+  .filter((item) => item.type === "document" || item.type === "audio")
+  .forEach((item) => {
+    // CRITICAL: Ensure the key matches exactly what the backend expects: "files"
+    if (item.value instanceof File) {
+      formData.append("files", item.value);
+    }
+  });
 
       const response = await fetch(`${ML_API_BASE}/generate_master_note`, {
         method: "POST",
@@ -148,74 +153,71 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
       // --- REAL-TIME STREAM READER ---
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let finalData = "";
+      let buffer = ""; 
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          
-          // Check if the chunk contains a progress update from backend
-          try {
-            const lines = chunk.split("\n");
-            for (const line of lines) {
-              if (!line.trim()) continue;
-              const parsed = JSON.parse(line);
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {console.log(line)
+              const payload = JSON.parse(line);
               
-              if (parsed.progress && setProgress) {
-                setProgress(parsed.progress); // Real progress from console/backend!
+              if (payload.progress !== undefined && setProgress) {
+                setProgress(payload.progress);
               }
-              if (parsed.final_result) {
-                finalData = JSON.stringify(parsed.final_result);
+              
+              if (payload.final_result) {
+                const data = payload.final_result;
+                console.log("ML Backend Data Received:", data);
+
+                const finalContent = isSingleSource 
+                  ? (data.sources?.[0]?.summary || data.meta_summary) 
+                  : data.meta_summary;
+
+                const processedReferences = (data.sources || []).map((source: any) => {
+                  const isVideo = source.type === "video" || source.type === "YouTube";
+                  const isAudio = source.type === "audio" || source.source === "Audio";
+                  const dbSource = isVideo ? "YouTube" : isAudio ? "Audio" : "PDF";
+                  
+                  let combinedContent = `**Summary:**\n${source.summary || "No summary available."}\n\n`;
+                  if ((isVideo || isAudio) && source.full_text) {
+                       combinedContent += `**Transcript:**\n${source.full_text}`;
+                  }
+
+                  return {
+                    source: dbSource,
+                    title: source.title || "Source Reference",
+                    content: combinedContent
+                  };
+                });
+
+                await updateNote(tempNote._id, {
+                  content: finalContent,
+                  references: processedReferences 
+                });
+
+                if (setProgress) setProgress(100);
+                showAlert(isSingleSource ? "Source processed!" : "Master Study Note generated with sources!", "success");
+                setTimeout(() => { if (setProgress) setProgress(null); }, 1200);
               }
+              
+              if (payload.error) {
+                console.error("Backend Error:", payload.error);
+                showAlert(payload.error, "error");
+              }
+            } catch (e) {
+              console.error("Error parsing line:", line, e);
             }
-          } catch (e) {
-            // If chunk isn't JSON, it might be the final raw data
-            finalData += chunk;
           }
         }
       }
-
-      // 2. Update note with final data
-      const data = JSON.parse(finalData);
-      console.log("ML Backend Data Received:", data);
-
-      const finalContent = isSingleSource 
-        ? (data.sources?.[0]?.summary || data.meta_summary) 
-        : data.meta_summary;
-
-      const processedReferences = (data.sources || []).map((source: any) => {
-        const isVideo = source.type === "video" || source.type === "YouTube";
-        const isAudio = source.type === "audio" || source.source === "Audio";
-        const dbSource = isVideo ? "YouTube" : isAudio ? "Audio" : "PDF";
-        
-        let combinedContent = `**Summary:**\n${source.summary || "No summary available."}\n\n`;
-        
-        if ((isVideo || isAudio) && source.full_text) {
-             combinedContent += `**Transcript:**\n${source.full_text}`;
-        }
-
-        return {
-          source: dbSource,
-          title: source.title || "Source Reference",
-          content: combinedContent
-        };
-      });
-
-      // 6. UPDATE THE EXISTING NOTE WITH FINAL DATA
-      await updateNote(tempNote._id, {
-        content: finalContent,
-       references: processedReferences 
-      });
-
-      // 7. Hit the finish line
-      if (setProgress) setProgress(100);
-      showAlert(isSingleSource ? "Source processed!" : "Master Study Note generated with sources!", "success");
-      
-      // 8. Cleanup: Wait for the 100% animation to finish before hiding
-      setTimeout(() => { if (setProgress) setProgress(null); }, 1200);
 
       setStagedItems([]);
       setNoteTitle("");
