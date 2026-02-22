@@ -176,7 +176,7 @@ const openDocument = async (doc: Doc) => {
         method: "POST",
         body: JSON.stringify({ boardID: doc._id }),
       });
-
+      console.log("hi")
       const data = await res.json();
       const board = Array.isArray(data) ? data[0] : data;
 

@@ -104,9 +104,9 @@ export function RagDoubtSolver() {
         const questionPrompt = "Based on the provided text, generate 5 diverse and highly specific study questions. Make them context-aware. Keep them short and concise. Return ONLY the questions separated by newlines, no numbers or bullet points.";
         const questionsRaw = await askDoubt(questionPrompt);
         const questionsArray = questionsRaw
-          .split("\n")
-          .filter(q => q.trim().length > 0)
-          .slice(0, 5);
+  .split("\n")
+  .filter((q: string) => q.trim().length > 0) // Explicitly type as string
+  .slice(0, 5);
 
         setSampleQuestions(questionsArray.length > 0 ? questionsArray : [
           "Summarize this note",

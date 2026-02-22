@@ -29,56 +29,77 @@ function BlockNoteInternal({
   const { theme } = useTheme();
   const editor = useCreateBlockNote();
   const [isMounted, setIsMounted] = useState(false);
-  
-  // Track current ID in a ref to block async saves to the wrong document
   const idRef = useRef(docId);
 
-  // Update ref if docId changes (though key prop should handle this via remounting)
   useEffect(() => {
     idRef.current = docId;
   }, [docId]);
 
   useEffect(() => {
+    let active = true; 
     if (!editor) return;
 
     const init = async () => {
-      setIsMounted(false); // Lock saving immediately to prevent bleeding old state
+      // Force immediate local unmount state
+      setIsMounted(false);
       try {
-        // 1. Force clear the internal document to prevent flickering
+        // Clear editor immediately
         editor.replaceBlocks(editor.document, [{ type: "paragraph", content: [] }]);
 
-        // 2. Load and stylize the new content
         if (initialContent && initialContent !== "undefined" && initialContent !== "") {
+          let blocks;
           try {
-            // Try BlockNote JSON format
-            const parsed = JSON.parse(initialContent);
-            editor.replaceBlocks(editor.document, parsed);
+            blocks = JSON.parse(initialContent);
           } catch {
-            // Fallback: AI-generated Markdown/Raw Text stylized into blocks
-            const blocks = await editor.tryParseMarkdownToBlocks(initialContent);
+            blocks = await editor.tryParseMarkdownToBlocks(initialContent);
+          }
+          
+          if (active) {
             editor.replaceBlocks(editor.document, blocks);
           }
         }
+      } catch (err) {
+        console.error("Editor init error:", err);
       } finally {
-        // Small delay to ensure the editor has finished its internal re-render
-        // before we allow onChange to trigger saves.
-        setTimeout(() => setIsMounted(true), 10);
+        if (active) {
+          // 50ms delay lets Lexical's internal reconciler finish its 'headless' check
+          setTimeout(() => {
+            if (active) setIsMounted(true);
+          }, 50); 
+        }
       }
     };
+
     init();
+
+    return () => {
+      active = false;
+      setIsMounted(false);
+      
+      // CRITICAL: Force an empty state on unmount. 
+      // This cancels Lexical's pending 'notify' and 'isHeadless' reconciliation tasks
+      // by making the internal tree empty before the DOM node is destroyed.
+      try {
+        editor.replaceBlocks(editor.document, []);
+      } catch (e) {
+        // Silent catch for disposal errors
+      }
+    };
   }, [editor, initialContent]);
 
-  // Sync changes back to Context
   useEffect(() => {
     if (!editor || !isMounted) return;
 
     const unsub = editor.onChange(() => {
-      // Logic Guard: Only allow save if we are still on the same document
-      if (idRef.current === docId) {
+      // Guard: Ensure document exists and ID matches before saving
+      if (isMounted && editor.document && idRef.current === docId) {
         onSave(JSON.stringify(editor.document));
       }
     });
-    return unsub;
+
+    return () => {
+      if (unsub) unsub();
+    };
   }, [editor, isMounted, docId, onSave]);
 
   return (

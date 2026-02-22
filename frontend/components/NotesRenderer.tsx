@@ -68,7 +68,9 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
   } = useNote();
 
   const { showDialog } = useUI();
-
+useEffect(() => {
+    console.log(content)
+  }, [content])
   // Verify the selectedDocId actually exists in the current account's docs array
   const activeDoc = useMemo(() => 
     docs.find((d) => d._id === selectedDocId),
@@ -211,6 +213,8 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
         setSelectedDocId(next?.id ?? null);
       }
     };
+
+    setContent("");
 
     if (tab && !tab.saved) {
       showDialog({
@@ -400,19 +404,38 @@ export default function NotesRenderer({ selected, setSelected }: SidebarProps) {
       {activeDoc.type === "board" && (
         <div className="flex-1 bg-background">
           <Tldraw
-            key={selectedDocId}
+            key={selectedDocId} // Keep this to force remount on doc switch
             inferDarkMode
             onMount={(editor) => {
               editorRef.current = editor;
 
-              if (activeDoc.content) {
+              // FIX: Use 'content' from context instead of 'activeDoc.content'
+              if (content && content !== "undefined" && content !== "") {
                 try {
-                  const snapshot = JSON.parse(activeDoc.content);
+                  const snapshot = JSON.parse(content);
                   editor.loadSnapshot(snapshot);
                 } catch (err) {
-                  console.error(err);
+                  console.error("Failed to load board snapshot:", err);
                 }
               }
+
+              const handleEvent = (info: any) => {
+                console.log('Event:', info.type);
+                // Mark as unsaved if there is a change event
+                if (info.type === 'change') {
+                  setTabs((prev) =>
+                    prev.map((t) =>
+                      t.id === selectedDocId ? { ...t, saved: false } : t
+                    )
+                  );
+                }
+              };
+
+              editor.on('event', handleEvent);
+
+              return () => {
+                editor.off('event', handleEvent);
+              };
             }}
           />
         </div>

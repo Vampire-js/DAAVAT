@@ -9,9 +9,6 @@ import {
   useEffect,
 } from "react";
 import { apiFetch } from "@/app/lib/api";
-import { useAuth } from "./AuthContext";
-
-/* ================= TYPES ================= */
 
 export type Reference = {
   id: string;
@@ -49,7 +46,7 @@ type NoteContextType = {
     content: string;
     parentId?: string | null;
     references?: Omit<Reference, "id">[];
-  }) => Promise<Doc>;
+  }) => Promise<void>;
 
   addDocument: (doc: {
     title: string;
@@ -57,35 +54,44 @@ type NoteContextType = {
     type: "note" | "board";
     parentId?: string | null;
     references?: Omit<Reference, "id">[];
-  }) => Promise<Doc>;
-
-  updateNote: (noteID: string, updates: Partial<Doc>) => Promise<void>;
+  }) => Promise<void>;
 
   references: Reference[];
   setReferences: (refs: Reference[]) => void;
   addReference: (ref: Omit<Reference, "id">) => Promise<void>;
-
-  globalProgress: number | null;
-  setGlobalProgress: (val: number | null) => void;
-  isTransitioning: boolean; 
 };
-
-/* ================= CONTEXT ================= */
 
 const NoteContext = createContext<NoteContextType | null>(null);
 
 export function NoteProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
   const [docs, setDocs] = useState<Doc[]>([]);
-  const [selectedDocId, _setSelectedDocId] = useState<string | null>(null);
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [content, setContent] = useState<string | undefined>(undefined);
   const [name, setName] = useState<string | null>(null);
   const [references, setReferences] = useState<Reference[]>([]);
-  const [globalProgress, setGlobalProgress] = useState<number | null>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false); 
 
-  /* ================= FETCH DOCS ================= */
+  // 🔥 Sync selected document state
+  useEffect(() => {
+    if (selectedDocId) {
+      const activeDoc = docs.find((d) => d._id === selectedDocId);
+      if (activeDoc) {
+        setContent(activeDoc.content || "");
+        setName(activeDoc.name);
 
+        if (activeDoc.type === "note") {
+          setReferences(activeDoc.references || []);
+        } else {
+          setReferences([]);
+        }
+      }
+    } else {
+      setReferences([]);
+      setContent("");
+      setName("");
+    }
+  }, [selectedDocId, docs]);
+
+  // 🔥 Fetch documents
   const refreshDocs = useCallback(async () => {
     try {
       const res = await apiFetch("/fileTree/documents");
@@ -97,76 +103,18 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  /* ================= RESET ON LOGOUT/SWITCH ================= */
   useEffect(() => {
-    setDocs([]);
-    _setSelectedDocId(null);
-    setContent(undefined);
-    setReferences([]);
-    setName(null);
+    refreshDocs();
+  }, [refreshDocs]);
 
-    if (user) {
-      refreshDocs();
-    }
-  }, [user?.id, refreshDocs]);
-
-  /* ================= SYNC SELECTED DOC & TRANSITION LOCK ================= */
-
-  // Lock updates immediately on click to prevent "bleeding" from old content
-  const setSelectedDocId = useCallback((id: string | null) => {
-    setIsTransitioning(true); 
-    _setSelectedDocId(id);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedDocId) {
-      setContent("");
-      setName("");
-      setReferences([]);
-      setIsTransitioning(false);
-      return;
-    }
-
-    // IMMEDIATELY clear content to prevent bleeding
-    setContent(undefined); 
-
-    const activeDoc = docs.find((d) => d._id === selectedDocId);
-    if (!activeDoc) return;
-
-    // Load data into states
-    setContent(activeDoc.content || "");
-    setName(activeDoc.name);
-
-    if (activeDoc.type === "note") {
-      setReferences(activeDoc.references || []);
-    } else {
-      setReferences([]);
-    }
-
-    // Unlock updates after a longer buffer to ensure Editor has processed the new state
-    const timer = setTimeout(() => setIsTransitioning(false), 100);
-    
-    return () => {
-      clearTimeout(timer);
-      setIsTransitioning(true); // Re-lock on unmount or doc switch
-    };
-  }, [selectedDocId, docs]);
-
-  // Wrap setContent to ignore updates during transition
-  const safeSetContent = useCallback((val: string | undefined) => {
-    if (isTransitioning) return; 
-    setContent(val);
-  }, [isTransitioning]);
-
-  /* ================= ADD DOCUMENT ================= */
-
+  // 🔥 Unified Add Document (note + board)
   const addDocument = async (newDoc: {
     title: string;
     content: string;
     type: "note" | "board";
     parentId?: string | null;
     references?: Omit<Reference, "id">[];
-  }): Promise<Doc> => {
+  }) => {
     try {
       const endpoint =
         newDoc.type === "note"
@@ -196,63 +144,30 @@ export function NoteProvider({ children }: { children: ReactNode }) {
 
       const savedDoc = await response.json();
 
+      // Optimistic update
       setDocs((prev) => [...prev, savedDoc]);
-      _setSelectedDocId(savedDoc._id);
+      setSelectedDocId(savedDoc._id);
 
-      await refreshDocs();
-      return savedDoc;
+      refreshDocs();
     } catch (error) {
       console.error("Error adding document:", error);
-      throw error;
     }
   };
 
-  /* ================= ADD NOTE (wrapper) ================= */
-
+  // 🔥 Backwards-compatible wrapper
   const addNote = async (note: {
     title: string;
     content: string;
     parentId?: string | null;
     references?: Omit<Reference, "id">[];
-  }): Promise<Doc> => {
+  }) => {
     return addDocument({
       ...note,
       type: "note",
     });
   };
 
-  /* ================= UPDATE NOTE ================= */
-
-  const updateNote = useCallback(
-    async (noteID: string, updates: Partial<Doc>) => {
-      try {
-        const response = await apiFetch("/fileTree/updateNote", {
-          method: "POST",
-          body: JSON.stringify({
-            noteID,
-            ...updates,
-          }),
-        });
-
-        if (!response.ok) throw new Error("Failed to update note");
-
-        setDocs((prev) =>
-          prev.map((doc) =>
-            doc._id === noteID ? { ...doc, ...updates } : doc
-          )
-        );
-
-        await refreshDocs();
-      } catch (err) {
-        console.error("Error updating note:", err);
-        throw err;
-      }
-    },
-    [refreshDocs]
-  );
-
-  /* ================= ADD REFERENCE ================= */
-
+  // 🔥 Add Reference (only works for notes)
   const addReference = useCallback(
     async (ref: Omit<Reference, "id">) => {
       if (!selectedDocId) return;
@@ -270,7 +185,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
           method: "POST",
           body: JSON.stringify({
             noteID: selectedDocId,
-            content,
+            content: content,
             references: updatedReferences,
           }),
         });
@@ -278,7 +193,7 @@ export function NoteProvider({ children }: { children: ReactNode }) {
         if (!response.ok)
           throw new Error("Failed to sync references to server");
 
-        await refreshDocs();
+        refreshDocs();
       } catch (err) {
         console.error("Error saving reference:", err);
       }
@@ -286,41 +201,32 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     [selectedDocId, references, content, docs, refreshDocs]
   );
 
-  /* ================= DERIVED ================= */
-
   const folders = docs.filter((d) => d.type === "folder");
-
-  /* ================= PROVIDER ================= */
 
   return (
     <NoteContext.Provider
       value={{
         docs,
+        setDocs,
         folders,
         refreshDocs,
         selectedDocId,
         setSelectedDocId,
         content,
-        setContent: safeSetContent, // Using the locked wrapper
+        setContent,
         name,
         setName,
         addNote,
         addDocument,
-        updateNote,
         references,
         setReferences,
         addReference,
-        globalProgress,
-        setGlobalProgress,
-        isTransitioning, 
       }}
     >
       {children}
     </NoteContext.Provider>
   );
 }
-
-/* ================= HOOK ================= */
 
 export function useNote() {
   const ctx = useContext(NoteContext);

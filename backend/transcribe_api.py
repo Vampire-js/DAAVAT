@@ -276,21 +276,26 @@ async def generate_diagram(text_content, file_id): # Made Async
 # Helper: Threaded Transcription
 # --------------------
 def _transcribe_sync(audio_path, model_size):
-    """Blocking transcription call"""
+    """Blocking transcription call with path verification"""
     try:
+        # 1. Verify the file exists and is accessible
+        if not os.path.exists(audio_path):
+            print(f"❌ ERROR: File not found at {audio_path}")
+            return ""
+
         print(f"📦 Initializing Whisper ({model_size})...")
         model = get_whisper_model(model_size)
         
-        # Log audio info to ensure the file is readable
         print(f"🎵 Transcribing: {audio_path}")
         
+        # 2. Optimized transcription parameters
         segments, info = model.transcribe(
             audio_path, 
             beam_size=5, 
             language="en",
-            vad_filter=True,
+            vad_filter=True, # Essential for filtering noise
             vad_parameters=dict(min_silence_duration_ms=500),
-            condition_on_previous_text=False 
+            condition_on_previous_text=False # Prevents hallucination loops
         )
         
         full_text = " ".join([s.text for s in segments]).strip()
@@ -304,7 +309,7 @@ def _transcribe_sync(audio_path, model_size):
         
     except Exception as e:
         print(f"❌ ERROR in _transcribe_sync: {str(e)}")
-        return "" # Returns empty so the backend knows this source failed
+        return ""
 
 async def process_full_pipeline(audio_path, file_id, model_size="medium"):
     # 1. Transcribe (Threaded)
@@ -769,57 +774,44 @@ async def websocket_endpoint(websocket: WebSocket, model_size: str = "small"):
 
 # --- New Master Note Helper Functions ---
 
-async def process_pdf_source(file: UploadFile):
-    """Refined PDF extraction leveraging existing logic"""
-    os.makedirs("./tmp", exist_ok=True)
-    file_path = f"./tmp/{file.filename}"
-    
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-        
+async def process_pdf_source(file_path: str): # Change from UploadFile to str
+    """Refined PDF extraction leveraging disk path"""
     try:
-        doc = fitz.open(file_path)
+        doc = fitz.open(file_path) # Open the saved path
         extracted_text = ""
         for page in doc:
             extracted_text += page.get_text() + "\n"
             
-        # Optional: Use your 35% summarizer for the individual source status
         summary, _, _ = accurate_35_summarize(extracted_text)
         
         return {
             "type": "pdf", 
-            "title": file.filename, 
+            "title": os.path.basename(file_path), 
             "full_text": extracted_text, 
             "summary": summary,
             "status": "completed"
         }
-    finally:
-        if os.path.exists(file_path): 
-            os.remove(file_path)
-            
-async def process_audio_source(file: UploadFile, model_size: str = "medium"):
-    """Processes uploaded audio files utilizing the existing Whisper+LLM pipeline"""
-    os.makedirs("./tmp", exist_ok=True)
-    file_path = f"./tmp/{file.filename}"
-    
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-        
+    except Exception as e:
+        print(f"❌ PDF error: {e}")
+        raise e
+
+async def process_audio_source(file_path: str, model_size: str = "medium"): # Change from UploadFile to str
+    """Processes audio files utilizing the existing pipeline from a disk path"""
     try:
         file_id = f"audio_{int(time.time())}_{random.randint(1000, 9999)}"
-        # Re-use your existing Whisper + LLM pipeline
+        # Pass the path to your stable transcription pipeline
         result = await process_full_pipeline(file_path, file_id, model_size)
         
         return {
             "type": "audio",
-            "title": file.filename,
+            "title": os.path.basename(file_path),
             "full_text": result.get("transcript", ""),
             "summary": result.get("notes", ""),
             "status": "completed"
         }
-    finally:
-        if os.path.exists(file_path): 
-            os.remove(file_path)
+    except Exception as e:
+        print(f"❌ Audio error: {e}")
+        raise e
 
 async def process_youtube_source(url: str, model_size: str = "medium"):
     """Refined YouTube processing leveraging process_full_pipeline"""
@@ -897,6 +889,7 @@ async def generate_master_note(
     files: List[UploadFile] = File(None),
     model_size: str = Form("medium")
 ):
+    print(files)
     # 1. READ AND SAVE FILES IMMEDIATELY (Outside the generator)
     # This prevents the "I/O operation on closed file" error
     temp_dir = os.path.join(os.getcwd(), "temp_uploads")
