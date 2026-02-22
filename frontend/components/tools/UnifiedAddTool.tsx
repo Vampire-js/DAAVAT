@@ -41,7 +41,7 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   
   // Destructure updateNote from context to allow background updates
-  const { addNote, folders, updateNote } = useNote(); 
+  const { addNote, folders, setContent} = useNote(); 
   const { showAlert } = useUI();
 
   // Added function to handle Pro Alert
@@ -105,22 +105,13 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
 
     // 1. Create placeholder and close modal
     let tempNote: any;
-    try {
-      tempNote = await addNote({
-        title: finalTitle,
-        content: "### 🪄 Processing Sources...\nYour summary and references will appear here shortly.",
-        parentId: selectedFolderId,
-        references: []
-      });
-
-      if (!tempNote || !tempNote._id) {
-        throw new Error("Failed to create initial placeholder note.");
-      }
-    } catch (err) {
-      console.error("Initial note creation failed:", err);
-      showAlert("Could not initialize note. Please try again.", "error");
-      return;
-    }
+    
+    tempNote = await addNote({
+      title: finalTitle,
+      content: "### 🪄 Processing Sources...\nYour summary and references will appear here shortly.",
+      parentId: selectedFolderId,
+      references: []
+    });
 
     if (onClose) onClose();
     setIsProcessing(true);
@@ -135,13 +126,12 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
       formData.append("model_size", modelSize); 
 
       stagedItems
-  .filter((item) => item.type === "document" || item.type === "audio")
-  .forEach((item) => {
-    // CRITICAL: Ensure the key matches exactly what the backend expects: "files"
-    if (item.value instanceof File) {
-      formData.append("files", item.value);
-    }
-  });
+        .filter((item) => item.type === "document" || item.type === "audio")
+        .forEach((item) => {
+          if (item.value instanceof File) {
+            formData.append("files", item.value);
+          }
+        });
 
       const response = await fetch(`${ML_API_BASE}/generate_master_note`, {
         method: "POST",
@@ -166,7 +156,8 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
 
           for (const line of lines) {
             if (!line.trim()) continue;
-            try {console.log(line)
+            try {
+              console.log(line);
               const payload = JSON.parse(line);
               
               if (payload.progress !== undefined && setProgress) {
@@ -198,10 +189,7 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
                   };
                 });
 
-                await updateNote(tempNote._id, {
-                  content: finalContent,
-                  references: processedReferences 
-                });
+                setContent(finalContent);
 
                 if (setProgress) setProgress(100);
                 showAlert(isSingleSource ? "Source processed!" : "Master Study Note generated with sources!", "success");
@@ -229,6 +217,7 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
       setIsProcessing(false);
     }
   };
+
 
   return (
     <div className="flex flex-col h-full space-y-4 p-2 text-white bg-neutral-950 rounded-lg border border-neutral-800">

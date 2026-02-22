@@ -207,7 +207,6 @@ export function NoteProvider({ children }: { children: ReactNode }) {
     <NoteContext.Provider
       value={{
         docs,
-        setDocs,
         folders,
         refreshDocs,
         selectedDocId,
