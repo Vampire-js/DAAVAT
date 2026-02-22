@@ -139,7 +139,7 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
       });
 
       if (!response.ok) throw new Error("Synthesis failed");
-
+      
       // --- REAL-TIME STREAM READER ---
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -159,10 +159,6 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
             try {
               console.log(line);
               const payload = JSON.parse(line);
-              
-              if (payload.progress !== undefined && setProgress) {
-                setProgress(payload.progress);
-              }
               
               if (payload.final_result) {
                 const data = payload.final_result;
@@ -191,9 +187,7 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
 
                 setContent(finalContent);
 
-                if (setProgress) setProgress(100);
                 showAlert(isSingleSource ? "Source processed!" : "Master Study Note generated with sources!", "success");
-                setTimeout(() => { if (setProgress) setProgress(null); }, 1200);
               }
               
               if (payload.error) {
@@ -211,7 +205,6 @@ export default function UnifiedAddTool({ onClose, setProgress }: UnifiedAddToolP
       setNoteTitle("");
     } catch (error) {
       console.error("Synthesis Error:", error);
-      if (setProgress) setProgress(null);
       showAlert("Failed to synthesize sources.", "error");
     } finally {
       setIsProcessing(false);

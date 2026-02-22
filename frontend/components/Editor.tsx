@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react"; // Added useRef
 import { useNote } from "@/app/contexts/NotesContext";
 import "@blocknote/core/fonts/inter.css";
 import { useCreateBlockNote } from "@blocknote/react";
@@ -22,63 +22,67 @@ export default function Editor({ setChanged }: EditorProps) {
 
   const editor = useCreateBlockNote();
   const { theme } = useTheme();
+  
+  // Use a ref to track the last content we successfully loaded into the editor
+  // This prevents infinite loops when content is updated via editor.onChange
+  const lastLoadedContent = useRef<string | undefined>("");
 
   const activeDoc = useMemo(
     () => docs.find((d) => d._id === selectedDocId),
     [docs, selectedDocId]
   );
 
-  const [hasLoaded, setHasLoaded] = useState(false);
-
   // ==========================
-  // LOAD CONTENT (ONLY FOR NOTES)
+  // LOAD & SYNC CONTENT
   // ==========================
   useEffect(() => {
-    if (!editor || !activeDoc) return;
+    if (!editor || !activeDoc || activeDoc.type !== "note") return;
 
-    // 🚫 If not a note → don't load into BlockNote
-    if (activeDoc.type !== "note") return;
+    // Only update the editor if the context content differs from what we last loaded
+    // This allows background updates (like YouTube summaries) to be reflected
+    if (content === lastLoadedContent.current) return;
 
-    if (!content) {
-      editor.replaceBlocks(editor.document, []);
-      return;
-    }
+    const loadContent = async () => {
+      if (!content) {
+        editor.replaceBlocks(editor.document, []);
+      } else {
+        try {
+          const parsed = JSON.parse(content);
+          editor.replaceBlocks(editor.document, parsed);
+        } catch {
+          // Fallback for plain text (like the initial "Magic" summary)
+          editor.replaceBlocks(editor.document, [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: content }],
+            },
+          ] as any);
+        }
+      }
+      lastLoadedContent.current = content;
+    };
 
-    try {
-      const parsed = JSON.parse(content);
-      editor.replaceBlocks(editor.document, parsed);
-    } catch {
-      editor.replaceBlocks(editor.document, [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: content }],
-        },
-      ] as any);
-    }
-
-    setHasLoaded(true);
-  }, [editor, activeDoc, selectedDocId]);
+    loadContent();
+  }, [editor, activeDoc, content, selectedDocId]);
 
   // ==========================
-  // HANDLE CHANGES
+  // HANDLE CHANGES (SAVE TO CONTEXT)
   // ==========================
   useEffect(() => {
-    if (!editor || !activeDoc) return;
-    if (activeDoc.type !== "note") return;
+    if (!editor || !activeDoc || activeDoc.type !== "note") return;
 
     const unsubscribe = editor.onChange(() => {
       const json = JSON.stringify(editor.document);
+      
+      // Update our ref so the "LOAD" effect knows this change came from the editor
+      lastLoadedContent.current = json;
+      
       setContent(json);
       setChanged(true);
     });
 
     return unsubscribe;
   }, [editor, activeDoc, setContent, setChanged]);
-
-  // Reset when switching documents
-  useEffect(() => {
-    setHasLoaded(false);
-  }, [selectedDocId]);
 
   // ==========================
   // CTRL + S
@@ -95,16 +99,10 @@ export default function Editor({ setChanged }: EditorProps) {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // ==========================
-  // SAFETY CHECK
-  // ==========================
   if (!activeDoc || activeDoc.type !== "note") {
-    return null; // Only render for notes
+    return null;
   }
 
-  // ==========================
-  // RENDER
-  // ==========================
   return (
     <div className="bg-background w-full h-full overflow-y-auto custom-scrollbar">
       <div className="p-8 max-w-5xl mx-auto pb-96">
